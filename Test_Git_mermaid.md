@@ -2,7 +2,7 @@
 sequenceDiagram
 
     autonumber
-    title Test_Git_mermaid
+    title Test_Git_mermaid - Updated in Git at 19:05
     
     participant P as Client 
     participant WS as Website
