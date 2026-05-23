@@ -1,40 +1,52 @@
+
 sequenceDiagram
 
-    participant P as Casino website
-    participant OP as Operator
-    participant HW as Hub Web 
-    participant HV as Hub Vendor 
+    autonumber
+    title  Game Launch
+
+    participant P as Client 
+    participant WS as Website
+    participant GRT as GRT Wrapper
+    participant GAME as Game iframe
+    participant WS as Operator Frontend
+    participant OP as Operator Backend
+    participant HW as Hub.Web
+        participant HV as Hub Vendor
     participant V as Vendor
 
-Note over P, V: Game Session Token Flow
-P->>OP: Open Game
-OP->>HW: POST LaunchGame {OperatorToken}
-HW->>HW: Generate AggregatorToken1
-HW->>V: GET Launch Game{AggregatorToken1}
-V-->>HW: Launch url response{AggregatorToken1}
-HW-->>OP: Game URL{AggregatorToken1}
-OP-->>P: Game URL{AggregatorToken1}
+Note over P, V: Game Launch
+    P->>WS : Open Game
+    WS ->> OP:Open Game
+    activate OP
+    OP->>HW: POST LaunchGame{playerId, gameCode, regulation}
+    activate HW
+    Note over HW: If the token is sent in requests, it is ignored
+    HW->>HW: Generate and store operatorToken
+    HW ->> HW: Check Jurisdiction  
+        opt Player can't play from the jurisdiction (by IP)
+            HW-->>OP: Error 14 
+            OP-->>WS: ???
+            WS-->>P: ???
+        end
+        
+    HW-->>OP:  LaunchURL, operatorToken 
+    deactivate HW
+    OP -->> WS: LaunchURL, operatorToken
+    WS->>GRT: Initialize GRT
+    GRT->>P:  clock, reality check, compliance UI
+    WS->>GAME: Create iframe with LaunchURL
 
-P->>V: Load game request {AggregatorToken1}
-V->>HW: POST authenticate {AggregatorToken1}
-HW->>HW: Generate AggregatorToken2
-HW->>OP: POST authenticate {AggregatorToken2}
-OP-->>HW: {balance}
-HW-->>V: {AggregatorToken2, balance}
-V-->>P: Load game response
-
-Note over P, V: TransactionID Flow
-P ->>V: Wager Request
-V->>HV: POST debit {vendorTransactionId}
-HV->>HV: debit record {aggregatorTransactionId}
-HV->>OP: POST debit {aggregatorTransactionId}
-OP-->>HV: debit response {operatorTransactionId}
-HV-->>V: debit response {aggregatorTransactionId}
-
-V->>HV: POST EndRound {vendorTransactionId}
-HV->>HV: endgame record {aggregatorTransactionId}
-HV->>OP: POST EndGame {aggregatorTransactionId}
-OP-->>HV: EndGame response {operatorTransactionId}
-HV-->>V: EndRound response {aggregatorTransactionId}
-V-->>P: Game outcome   
-
+Note over P, V: Authentication
+    GAME->>V: GET Launch Game  {gameCode, regulation, operatorToken}
+    activate V
+    V->>HW: POST authenticate {operatorToken}
+    activate HW
+    HW->>OP: POST authenticate {operatorToken}
+    activate OP
+    OP-->>HW: {balance}
+    deactivate OP
+    HW->>HW: Generate and store vendorToken
+    HW-->>V: {vendorToken, balance}
+    deactivate HW
+    V-->>GAME:  game content
+    deactivate V
