@@ -1,365 +1,3973 @@
-openapi: 3.0.2
+openapi: 3.0.3
 info:
-  version: "0.0.1"
-  title: Defibrillatori
-  x-summary: Individua i defibrillatori sul territorio
-  description: |
-    ## Defibrillatori
-
-    Questa API permette a tutti di elencare
-    e localizzare i defibrillatori presenti in un'area.
-    Inoltre permette al personale autorizzato di gestire
-    le informazioni in elenco.
-
-    E' utile perché...
-  termsOfService: 'https://tos.example.it'
+  title: FOI - Operator API
+  version: "2.30"
   contact:
-    email: roberto@teamdigitale.governo.it
-    name: Dipartimento Trasformazione Digitale
-    url: 'https://innovazione.gov.it'
-tags:
--  name: publish
-   description: >-
-    Pubblica le informazioni sui defibrillatori
--  name: manage
-   description: >-
-    Permetti agli enti di gestire i defibrillatori
--  name: monitor
-   description: >-
-    Monitoraggio dello stato dell'API.
+    name: OPD Integrations Team
+    email: maria.girshberg@aristocrat.com
+  description: |
+    This OpenAPI specification was produced from the original PDF integration manuals to improve readability, searchability, and day-to-day use by business analysts, system analysts, and developers.
+
+    This file documents only the operator-hosted endpoints called by the aggregator in the FOI integration flow.
+
+    Sources:
+
+    - FOI Integration User Manual, Release Version: 2.30
+    - FOI Integration User Manual, Release Version: 3.0 (DRAFT, currently in progress)
+    - OPD Integration Team clarifications
+
+    This file is fully anonymized for security reasons. COMPANY stands for the company name used in the source materials.
+
+    Disclaimer:
+
+    The source manuals were not historically revised together with every integration change. This OpenAPI specification may therefore inherit mismatches, omissions, or outdated wording from the source materials. If you find a discrepancy or an update is required, contact Maria Girshberg at maria.girshberg@aristocrat.com.
+
+    Authentication:
+
+    Requests to operator endpoints that include an Account object must be authenticated with the username and password provided for the integration.
+
+    Transport:
+
+    The communication interface between the operator and the HUB is handled by server-to-server requests via HTTPS using POST method. Requests and responses are sent as JSON.
+
+    Error Handling:
+
+    If an error occurs on the operator side, the operator should reply with the correct error code.
+
+    For errors that should be retried, operators generally use error codes above 100. For final rejection, operators generally use codes below 100.
+
+    The following table lists the error names and the associated error codes.
+
+    | Name | Code | Comments |
+    | --- | --- | --- |
+    | InsufficientFunds | 1 | Player doesn't have enough money to make a wager. |
+    | InvalidNegativeAmount | 3 | Negative amount. |
+    | AuthenticationFailed | 4 | Credentials provided in the API are incorrect. |
+    | TokenExpired | 5 | Token is expired. Relevant only when FinancialMode = 1 (Ecommerce mode) in the AuthenticationResponse. |
+    | UnknownTransactionId | 6 | Transaction ID not found. |
+    | InvalidGame | 7 | Game not found. |
+    | InvalidToken | 8 | Token not found. Note: This error should be returned if the token is not found in the operator system/DB. |
+    | InvalidRound | 9 | Round not found. |
+    | InvalidUserId | 10 | Player ID not found |
+    | TransactionAlreadySettled | 11 | The debit or credit is settled already. |
+    | AccountIsLocked | 12 | User account is locked. Note: This error is returned only for Authenticate, DebitCredit, and Debit methods. Actions such as canceltransaction or credit should always pass even when locked. |
+    | PlayerLimitExceededTurnover | 13 | Player responsible gaming rule. |
+    | PlayerLimitExceededSessionTime | 14 | Player responsible-gaming session time limit was exceeded. |
+    | PlayerLimitExceededSessionStake | 15 | Player responsible-gaming session stake limit was exceeded. |
+    | PlayerLimitExceededSessionLoss | 16 | Player responsible-gaming session loss limit was exceeded. |
+    | RoundAlreadyEnded | 17 | Round has already ended and no more wagers or winnings can be accepted. |
+    | TransactionAlreadyCancelled | 18 | The transaction has already been cancelled. |
+    | PlayerHaveOpenedRounds | 19 | If the player has opened rounds for the game played (applicable to debit calls only) |
+    | NoRoundsLeft | 20 | The player attempts to make a bet and doesn't have any rounds left. This is relevant only when the FinancialMode = 1 (Ecommerce mode) in the AuthenticationResponse. |
+    | BetAmountUnderMinimum | 21 | The player is trying to place a bet with a bet lower than the minimum. |
+    | DailyTimeLimit | 22 | When the daily time limit is reached within the game, a daily time limit message should be displayed |
+    | WeeklyTimeLimit | 23 | When the weekly time limit is reached within the game, a weekly time limit message should be displayed. |
+    | MonthlyTimeLimit | 24 | When the monthly time limit is reached within the game, a monthly time limit message should be displayed. |
+    | RCRegulationFailed | 25 | If the regulation fails. |
+    | ResponsibleGamingLimitReached | 26 | Responsible-gaming limit was reached. |
+    | SessionTimeLimitReached | 27 | Spanish regulation Time limit reached |
+    | SessionLossLimitReached | 28 | Spanish regulation Loss limit reached |
+    | InvalidGamePlatform | 29 | Invalid game platform type |
+    | InvalidCurrency | 30 | Invalid player currency |
+    | GeoLocation | 31 | In order to deposit and place bets at Play Alberta, you must reside in the province of Alberta. At this time, we are unable to verify that your current location is within Alberta. |
+    | InvalidGeolocation | 151 | The player geolocation is not corresponding with the defined game regulation. |
+    | GeneralError | 900 | An unexpected error occurred. |
+
+    Most responses include an Error object. In successful responses, Error is null. Some legacy or endpoint-specific error responses use flat ErrorCode and ErrorMessage fields; check the endpoint response schema before implementation.
+
 servers:
-- url: https://api.example/defibrillatori/v0
-  description: production
-- url: /defibrillatori/v0
-  description: development
-  x-sandbox: true
-components:
-  schemas:
-    Problem:
-      $ref: "https://teamdigitale.github.io/openapi/master/definitions.yaml#/components/schemas/Problem"
-    DefibrillatoreId:
-      type: string
-      format: uuid
-      maxLength: 36
-      minLength: 36
-      pattern: '[a-z0-9-]{36}'
-      description: >-
-        L'identificativo univoco del defibrillatore.
-      example: 7411c337-2f9a-4f6b-911d-d1b814ea4c57
-    Defibrillatore:
-      type: object
-      additionalProperties: false
-      required: [id, status, gestore]
-      properties:
-        id:
-          $ref: "#/components/schemas/DefibrillatoreId"
-        status:
-          type: string
-          enum: [attivo, non-attivo]
-          example: attivo
-        gestore:
-          type: string
-          maxLength: 32
-          pattern: '[a-zA-Z0-9\-_]+'
-          description: |-
-            codice IPA dell'ente che gestisce il defibrillatore.
-            Gli utenti autenticati devono essere riferibili all'ente.
-          example: "C_E472"
-    GeoJSONFeature:
-      type: object
-      additionalProperties: false
-      required:
-        - type
-        - geometry
-      properties:  &GeoJSONFeatureProperties
-        type:
-          type: string
-          enum: [Feature]
-        geometry:
-          type: object
-          required: [type, coordinates]
-          additionalProperties: false
-          properties:
-            type:
-              type: string
-              enum: [Point]
-            coordinates:
-              type: array
-              maxItems: 2
-              minItems: 2
-              items:
-                type: number
-                format: double
-                minimum: -180
-                maximum: 180
-    DefibrillatoreGeo:
-      description: |-
-        Questo schema usa la sintassi YAML per comporre
-        sintatticamente le proprietà di un oggetto senza
-        usare meccanismi di ereditarietà.
-      type: object
-      additionalProperties: false
-      required:
-      - type
-      - geometry
-      - properties
-      properties:
-        <<: *GeoJSONFeatureProperties
-        properties:
-          $ref: '#/components/schemas/Defibrillatore'
-      example:
-        type: Feature
-        geometry:
-          type: Point
-          coordinates: [ 40.123, 14.123]
-        properties:
-          id: 7411c337-2f9a-4f6b-911d-d1b814ea4c57
-          status: attivo
-          gestore: C_E472
-    DefibrillatoriGeo:
-      type: object
-      description: Un oggetto GeoJSon FeatureCollection
-      additionalProperties: false
-      required:
-      - type
-      - features
-      properties:
-        type:
-          type: string
-          enum: [FeatureCollection]
-          example: FeatureCollection
-        features:
-          type: array
-          maxItems: 1000
-          minItems: 0
-          items:
-            $ref: "#/components/schemas/DefibrillatoreGeo"
-    AreaAmministrativa:
-      type: string
-      minLength: 2
-      maxLength: 6
-      pattern: '[0-9]{2,6}'
-      description: |-
-        Codice Istat dell'area amministrativa:
-        * 2 caratteri per regioni
-        * 3 caratteri per province
-        * 6 caratteri per comuni
-      example: '059001'
-    Latitude:
-      $ref: https://teamdigitale.github.io/openapi/master/definitions.yaml#/components/schemas/Latitude
-    Longitude:
-      $ref: https://teamdigitale.github.io/openapi/master/definitions.yaml#/components/schemas/Longitude
-  parameters:
-    AreaAmministrativa:
-      name: codice_istat
-      in: query
-      description: Identificativo dell'area amministrativa da interrogare.
-      schema:
-        $ref: "#/components/schemas/AreaAmministrativa"
-    Latitudine:
-      name: lat
-      in: query
-      description: Latitudine dell'area da interrogare.
-      schema:
-        $ref: "#/components/schemas/Latitude"
-    Longitudine:
-      name: lon
-      in: query
-      description: Longitudine dell'area da interrogare.
-      schema:
-        $ref: "#/components/schemas/Longitude"
-    Radius:
-      name: radius
-      in: query
-      description: Raggio di ricerca in metri.
-      schema:
-        type: integer
-        format: int32
-        minimum: 0
-        default: 500
-        maximum: 2000
-        example: 500
-    DefibrillatoreId:
-      name: id
-      in: path
-      description: L'identificativo univoco del defibrillatore.
-      schema:
-        $ref: "#/components/schemas/DefibrillatoreId"
-      required: true
-  securitySchemes:
-    OAuthToken:
-      type: oauth2
-      description: >-
-        A bearer token in the format of a JWS and conformato
-        to the specifications included in [RFC8725](https://tools.ietf.org/html/RFC8725).
-
-      flows:
-        clientCredentials:
-          tokenUrl: https://as.example/token
-          scopes:
-            "operatore": Gestisci i defibrillatori.
-            "sistema-IoT": Cambia lo stato di un defibrillatore.
-  responses:
-    default:
-      $ref: https://teamdigitale.github.io/openapi/master/definitions.yaml#/components/responses/default
-
+  - url: https://operator-url.example.com
+tags:
+  - name: Financial Integration
+  - name: ATS
+  - name: Promotional Tools
+  - name: Regulations
+  - name: Sportsbook
+  - name: Jackpots API
 paths:
-  /status:
-    get:
-      summary: Get status
-      operationId: mostra_status
-      tags:
-      - monitor
-      - publish
-      security:
-        - {}
-      description: Returns OK if the service works.
-      responses:
-        "200":
-          description: The API works
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
-        default:
-          $ref: "#/components/responses/default"
-  /defibrillatori:
-    get:
-      summary: Elenca defibrillatori
-      operationId: lista_defibrillatori
-      security:
-        - {}
-      tags:
-      - publish
-      description: |-
-        Elenca i defibrillatori presenti in un'area definita alternativamente
-        dai parametri:
-         * codice_istat
-         * lat, long, radius
-      parameters:
-      - $ref: "#/components/parameters/AreaAmministrativa"
-      - $ref: "#/components/parameters/Latitudine"
-      - $ref: "#/components/parameters/Longitudine"
-      - $ref: "#/components/parameters/Radius"
-      responses:
-        "200":
-          description: Elenco dei defibrillatori
-          content:
-            application/geo+json:
-              schema:
-                $ref: "#/components/schemas/DefibrillatoriGeo"
-        default:
-          $ref: "#/components/responses/default"
+  /Authenticate:
     post:
-      summary: Aggiungi defibrillatore
-      operationId: crea_defibrillatore
       tags:
-      - manage
-      security:
-        - OAuthToken: [operatore]
-      description: |-
-        Aggiungi un defibrillatore.
+        - Financial Integration
+      summary: Authentication
+      operationId: authenticate
+      description: |
+        After the player opens a game or a current game is reloaded, an authentication request is sent to the operator to validate the player's token and create or refresh a game session on the operator side.
+
+        The mismatch between the Authenticate endpoint in FOI and EVI is by design to accommodate EVI and DVI vendor integrations.
+
+        HTTP code of an error response should always be 200.
+
+        The aggregator calls this endpoint after vendor authentication. The operator validates player and session context and returns data needed for gameplay and financial calls.
       requestBody:
         required: true
         content:
-          application/geo+json:
+          application/json:
             schema:
-              $ref: "#/components/schemas/DefibrillatoreGeo"
-      responses:
-        "201":
-          description: Il defibrillatore è stato creato.
-          headers:
-            Cache-Control:
-              description: no-store
-              schema:
-                type: string
-                enum: [no-store]
-            Location:
-              description: L'URL del nuovo defibrillatore.
-              schema:
-                type: string
-                format: url
-                maxLength: 4096
-          content:
-            application/geo+json:
-              schema:
-                $ref: "#/components/schemas/DefibrillatoreGeo"
-        default:
-          $ref: "#/components/responses/default"
-  /defibrillatori/{id}:
-    parameters:
-    - $ref: "#/components/parameters/DefibrillatoreId"
-    get:
-      summary: Elenca un defibrillatore
-      operationId: mostra_defibrillatore
-      tags:
-      - publish
-      - manage
-      security:
-        - {}
-      description: |-
-        Elenca un defibrillatore specifico
+              $ref: '#/components/schemas/AuthenticateRequest'
+            examples:
+              standard_authenticate:
+                summary: standard authenticate request
+                value:
+                  Account:
+                    UserName: testuser
+                    Password: qweqwe1
+                  Token: F3497FC0FE204EE7B50A2B11B72377BA
+                  PlayerId: "20452"
+                  PlatformType: 1
+                  BrandId: "123"
       responses:
         "200":
-          description: >-
-            Defibrillatore recuperato correttamente e
-            ritornato integralmente nel content.
+          description: HTTP 200 OK
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DefibrillatoreGeo"
-        default:
-          $ref: "#/components/responses/default"
-    patch:
-      summary: Aggiorna un defibrillatore
-      operationId: modifica_defibrillatore
+                $ref: '#/components/schemas/AuthenticateResponse'
+              examples:
+                success:
+                  summary: successful authenticate response
+                  value:
+                    Balance: 505116.1
+                    BonusBalance: 0.0
+                    FinancialMode: 0
+                    RoundsLeft: 0
+                    Error: null
+                    Timestamp: "2025-10-13T01:35:12Z"
+                    UserSettings:
+                      MaxBet: "5.0"
+                      MaxExposure: "0.0"
+                      MinBet: "0.0"
+                      DefaultBet: "0.0"
+                error_authentication_failed:
+                  summary: 4 - authentication failed
+                  value:
+                    Error:
+                      ErrorCode: 4
+                      OperatorMessage: AuthenticationFailed
+                error_token_expired:
+                  summary: 5 - token expired
+                  value:
+                    Error:
+                      ErrorCode: 5
+                      OperatorMessage: TokenExpired
+                error_invalid_token:
+                  summary: 8 - invalid token
+                  value:
+                    Error:
+                      ErrorCode: 8
+                      OperatorMessage: InvalidToken
+                error_invalid_user_id:
+                  summary: 10 - invalid user id
+                  value:
+                    Error:
+                      ErrorCode: 10
+                      OperatorMessage: InvalidUserId
+                error_account_is_locked:
+                  summary: 12 - account is locked
+                  value:
+                    Error:
+                      ErrorCode: 12
+                      OperatorMessage: AccountIsLocked
+                error_player_limit_exceeded_turnover:
+                  summary: 13 - player limit exceeded turnover
+                  value:
+                    Error:
+                      ErrorCode: 13
+                      OperatorMessage: PlayerLimitExceededTurnover
+                error_player_limit_exceeded_session_time:
+                  summary: 14 - player limit exceeded session time
+                  value:
+                    Error:
+                      ErrorCode: 14
+                      OperatorMessage: PlayerLimitExceededSessionTime
+                error_player_limit_exceeded_session_stake:
+                  summary: 15 - player limit exceeded session stake
+                  value:
+                    Error:
+                      ErrorCode: 15
+                      OperatorMessage: PlayerLimitExceededSessionStake
+                error_player_limit_exceeded_session_loss:
+                  summary: 16 - player limit exceeded session loss
+                  value:
+                    Error:
+                      ErrorCode: 16
+                      OperatorMessage: PlayerLimitExceededSessionLoss
+                error_general_error:
+                  summary: 900 - general error
+                  value:
+                    Error:
+                      ErrorCode: 900
+                      OperatorMessage: GeneralError
+  /Debit:
+    post:
       tags:
-      - manage
-      security:
-        - OAuthToken: [operatore, sistema-IoT]
-      description: |-
-        Aggiorna un defibrillatore specifico con i dati forniti
-        * da un operatore (utente autenticato) dell'ente che gestisce il
-          defibrillatore;
-        * da un automa che può aggiornare il solo stato del defibrillatore.
+        - Financial Integration
+        - Jackpots API
+        - Sportsbook
+      summary: Debit
+      operationId: debit
+      description: |
+        The Debit request is used whenever a player makes a wager inside a game. The operator must validate the request parameters (Balance of the player, status of the round) and commit the transaction.
+
+        The presence of BonusBalance and UsedBonusMoney in the FOI response, while they remain missing from the standard EVI response, is by design to accommodate DVI and tournament functionality.
+
+        HTTP code of an error response should always be 200.
+
+        Sportsbook section:
+
+        The following debit parameters (according to the standard HUB API) are specific to Sportsbook.
+
+        BuyWin Split Tax example from the regulations section is reflected in the request examples.
+
+        If EndGame is true, the same Debit call also closes the round.
       requestBody:
-        description: |-
-          I campi del defibrillatore da modificare.
-          Un utente di tipo "automa" può modificare solo il campo "stato".
         required: true
         content:
-          application/merge-patch+json:
+          application/json:
             schema:
-              $ref: "#/components/schemas/DefibrillatoreGeo"
+              $ref: '#/components/schemas/DebitRequest'
+            examples:
+              standard_debit:
+                summary: standard debit request
+                value:
+                  Account:
+                    UserName: username
+                    Password: secret_password
+                  BrandId: "122"
+                  Token: BC221129A4A0423B85E5012BE713CAFE
+                  GameCode: PGC_vs7pigs
+                  PlayerId: INT_698325
+                  RoundId: PGC-BTO_783102710000
+                  TransactionId: "57500814"
+                  Amount: "2.10"
+                  Taxes:
+                    BetAmount: "1.75"
+                    TaxAmount: "0.350000"
+                  EndGame: false
+                  Feature: Normal
+                  FeatureId: "13491"
+                  TransactionConfiguration:
+                    - 3
+                  AdditionalInfo:
+                    TickeID: "175140131510851"
+              jackpoints_debit:
+                summary: jackpoints debit request with jackpot contribution
+                value:
+                  Account:
+                    UserName: ""
+                    Password: ""
+                  Token: 890F637B62EF41DD8144CFCA00EB90A0
+                  GameCode: PP_HTML5_Faith96
+                  PlayerId: "20453"
+                  RoundId: R2R-FS_13230204531733176998
+                  TransactionId: "54257939"
+                  Amount: 0.3
+                  EndGame: false
+                  Feature: Normal
+                  JackpotContribution: 0.003
+                  JackpotDetailsParameters:
+                    - JackpotId: JackpotId1
+                      JackpotName: Major Jackpot
+                      CurrencyCode: GBP
+                      Amount: 0.002
+                    - JackpotId: JackpotId2
+                      JackpotName: Minor Jackpot
+                      CurrencyCode: GBP
+                      Amount: 0.001
+              sportsbook_debit:
+                summary: sportsbook debit request
+                value:
+                  GameCode: BTO_BtoBetSport
+                  PlayerId: xxx1234567
+                  RoundId: BTO-XXX_22854
+                  TransactionId: "29348"
+                  Amount: 1.0
+                  EndGame: false
+                  Feature: BonusWin
+                  FeatureId: "11"
+                  TransactionConfiguration:
+                    - 1
+                  GameType: 3
+                  BetSlipGroupId: 22854
+                  Token: 6B45C7CE1DBE40FCA193B0301678AF38
+                  Account:
+                    UserName: YYYY
+                    Password: YYY1234!!
       responses:
         "200":
-          description: |-
-            Defibrillatore aggiornato correttamente
-            viene ritornato integralmente nel content.
+          description: HTTP 200 OK
           content:
-            application/geo+json:
+            application/json:
               schema:
-                $ref: "#/components/schemas/DefibrillatoreGeo"
-        "403":
-          description: |- 
-            Non si hanno i permessi per modificare l'oggetto indicato.
-            E' gestito da un'altro ente.
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
-        default:
-          $ref: "#/components/responses/default"
-    delete:
-      summary: Elimina un defibrillatore.
-      operationId: elimina_defibrillatore
-      description: Elimina un defibrillatore.
-      security:
-        - OAuthToken: [operatore]
+                $ref: '#/components/schemas/DebitResponse'
+              examples:
+                success:
+                  summary: successful debit response
+                  value:
+                    Balance: 497.04
+                    BonusBalance: 0.0
+                    TransactionId: "722_1279"
+                    UsedBonusMoney: 0.0
+                    Message:
+                      DisplayType: 1
+                      MessageType: 1
+                      MessageContent:
+                        Title: Title for the popup message
+                        Text: message. Including \r\n or just \n for enter
+                        Buttons:
+                          - Text: Quit Game
+                            Action: quit
+                          - Text: Ok
+                            Action: continue
+                          - Text: View History
+                            Action: link
+                            Link: https://www.casino.com/myaccount/history
+                error_insufficient_funds:
+                  summary: 1 - insufficient funds
+                  value:
+                    Error:
+                      ErrorCode: 1
+                      OperatorMessage: InsufficientFunds
+                error_invalid_negative_amount:
+                  summary: 3 - invalid negative amount
+                  value:
+                    Error:
+                      ErrorCode: 3
+                      OperatorMessage: InvalidNegativeAmount
+                error_authentication_failed:
+                  summary: 4 - authentication failed
+                  value:
+                    Error:
+                      ErrorCode: 4
+                      OperatorMessage: AuthenticationFailed
+                error_token_expired:
+                  summary: 5 - token expired
+                  value:
+                    Error:
+                      ErrorCode: 5
+                      OperatorMessage: TokenExpired
+                error_invalid_game:
+                  summary: 7 - invalid game
+                  value:
+                    Error:
+                      ErrorCode: 7
+                      OperatorMessage: InvalidGame
+                error_invalid_token:
+                  summary: 8 - invalid token
+                  value:
+                    Error:
+                      ErrorCode: 8
+                      OperatorMessage: InvalidToken
+                error_invalid_round:
+                  summary: 9 - invalid round
+                  value:
+                    Error:
+                      ErrorCode: 9
+                      OperatorMessage: InvalidRound
+                error_invalid_user_id:
+                  summary: 10 - invalid user id
+                  value:
+                    Error:
+                      ErrorCode: 10
+                      OperatorMessage: InvalidUserId
+                error_transaction_already_settled:
+                  summary: 11 - transaction already settled
+                  value:
+                    Error:
+                      ErrorCode: 11
+                      OperatorMessage: TransactionAlreadySettled
+                error_account_is_locked:
+                  summary: 12 - account is locked
+                  value:
+                    Error:
+                      ErrorCode: 12
+                      OperatorMessage: AccountIsLocked
+                error_player_limit_exceeded_turnover:
+                  summary: 13 - player limit exceeded turnover
+                  value:
+                    Error:
+                      ErrorCode: 13
+                      OperatorMessage: PlayerLimitExceededTurnover
+                error_player_limit_exceeded_session_time:
+                  summary: 14 - player limit exceeded session time
+                  value:
+                    Error:
+                      ErrorCode: 14
+                      OperatorMessage: PlayerLimitExceededSessionTime
+                error_player_limit_exceeded_session_stake:
+                  summary: 15 - player limit exceeded session stake
+                  value:
+                    Error:
+                      ErrorCode: 15
+                      OperatorMessage: PlayerLimitExceededSessionStake
+                error_player_limit_exceeded_session_loss:
+                  summary: 16 - player limit exceeded session loss
+                  value:
+                    Error:
+                      ErrorCode: 16
+                      OperatorMessage: PlayerLimitExceededSessionLoss
+                error_round_already_ended:
+                  summary: 17 - round already ended
+                  value:
+                    Error:
+                      ErrorCode: 17
+                      OperatorMessage: RoundAlreadyEnded
+                error_transaction_already_cancelled:
+                  summary: 18 - transaction already cancelled
+                  value:
+                    Error:
+                      ErrorCode: 18
+                      OperatorMessage: TransactionAlreadyCancelled
+                error_player_have_opened_rounds:
+                  summary: 19 - player has opened rounds
+                  value:
+                    Error:
+                      ErrorCode: 19
+                      OperatorMessage: PlayerHaveOpenedRounds
+                error_no_rounds_left:
+                  summary: 20 - no rounds left
+                  value:
+                    Error:
+                      ErrorCode: 20
+                      OperatorMessage: NoRoundsLeft
+                error_bet_amount_under_minimum:
+                  summary: 21 - bet amount under minimum
+                  value:
+                    Error:
+                      ErrorCode: 21
+                      OperatorMessage: BetAmountUnderMinimum
+                error_daily_time_limit:
+                  summary: 22 - daily time limit
+                  value:
+                    Error:
+                      ErrorCode: 22
+                      OperatorMessage: DailyTimeLimit
+                error_weekly_time_limit:
+                  summary: 23 - weekly time limit
+                  value:
+                    Error:
+                      ErrorCode: 23
+                      OperatorMessage: WeeklyTimeLimit
+                error_monthly_time_limit:
+                  summary: 24 - monthly time limit
+                  value:
+                    Error:
+                      ErrorCode: 24
+                      OperatorMessage: MonthlyTimeLimit
+                error_yearly_time_limit:
+                  summary: 25 - yearly time limit
+                  value:
+                    Error:
+                      ErrorCode: 25
+                      OperatorMessage: YearlyTimeLimit
+                error_responsible_gaming_limit_reached:
+                  summary: 26 - responsible gaming limit reached
+                  value:
+                    Error:
+                      ErrorCode: 26
+                      OperatorMessage: ResponsibleGamingLimitReached
+                error_session_time_limit_reached:
+                  summary: 27 - session time limit reached
+                  value:
+                    Error:
+                      ErrorCode: 27
+                      OperatorMessage: SessionTimeLimitReached
+                error_session_loss_limit_reached:
+                  summary: 28 - session loss limit reached
+                  value:
+                    Error:
+                      ErrorCode: 28
+                      OperatorMessage: SessionLossLimitReached
+                error_invalid_game_platform:
+                  summary: 29 - invalid game platform
+                  value:
+                    Error:
+                      ErrorCode: 29
+                      OperatorMessage: InvalidGamePlatform
+                error_invalid_currency:
+                  summary: 30 - invalid currency
+                  value:
+                    Error:
+                      ErrorCode: 30
+                      OperatorMessage: InvalidCurrency
+                error_geo_location:
+                  summary: 31 - geo location
+                  value:
+                    Error:
+                      ErrorCode: 31
+                      OperatorMessage: GeoLocation
+                error_geo_location_non_fatal:
+                  summary: 301 - geo location non-fatal
+                  value:
+                    Error:
+                      ErrorCode: 301
+                      OperatorMessage: GeoLocation
+                error_general_error:
+                  summary: 900 - general error
+                  value:
+                    Error:
+                      ErrorCode: 900
+                      OperatorMessage: GeneralError
+  /Credit:
+    post:
       tags:
-      - manage
+        - Financial Integration
+        - Jackpots API
+        - Sportsbook
+      summary: Credit
+      operationId: credit
+      description: |
+        The Credit request is used whenever the player wins an amount in a game. The operator must validate the request parameters and commit the transaction.
+
+        When a vendor sends a credit request with an amount equal to zero, the aggregator transforms this into an EndGame call to the operator.
+
+        The presence of BonusBalance and UsedBonusMoney in the FOI response, while they remain missing from the standard EVI response, is by design to accommodate DVI and tournament functionality.
+
+        HTTP code of an error response should be 200.
+
+        Sportsbook section:
+
+        The following credit parameters (as per the standard HUB API) are specific to Sportsbook.
+
+        Platform suggestion:
+
+        When Endgame=true for roundid/betslipgroupid, then look up debit for same roundid/betslipgroupid.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreditRequest'
+            examples:
+              standard_credit:
+                summary: standard credit request
+                value:
+                  Account:
+                    UserName: username
+                    Password: secret_password
+                  Token: 3BD4348811394532AB650B1AD04C0095
+                  GameCode: POL_GEMSTONE7S
+                  PlayerId: "1000000000000000363"
+                  RoundId: POL-WV_PS-6b4bpb77pnegdf3cqygeh55rq4
+                  TransactionId: "57431328"
+                  Amount: "5022.02"
+                  EndGame: true
+                  CreditType: ProgressiveWin
+                  Feature: Normal
+                  TransactionConfiguration:
+                    - 3
+              jackpoints_credit:
+                summary: jackpoints credit request with jackpot win details
+                value:
+                  Account:
+                    UserName: ""
+                    Password: ""
+                  Token: AC8CB18DA7CB4355932DB373918CDAA9
+                  GameCode: PP_HTML5_Faith96
+                  PlayerId: "20453"
+                  RoundId: R2R-FS_654968770902178105
+                  TransactionId: "54350740"
+                  Amount: 4.76
+                  EndGame: true
+                  CreditType: ProgressiveWin
+                  Feature: JackpotWin
+                  JackpotDetailsParameters:
+                    - JackpotId: JackpotId1
+                      JackpotName: Major Jackpot
+                      Amount: 1.71
+                    - JackpotId: JackpotId2
+                      JackpotName: Minor Jackpot
+                      Amount: 3.05
+              sportsbook_credit:
+                summary: sportsbook credit request
+                value:
+                  GameCode: BTO_BtoBetSport
+                  PlayerId: xxx1234567
+                  RoundId: BTO-XXX_22854
+                  TransactionId: "29349"
+                  Amount: 10.49
+                  EndGame: true
+                  CreditType: NormalWin
+                  Feature: Normal
+                  TransactionConfiguration:
+                    - 1
+                    - 8
+                  GameType: 3
+                  BetSlipGroupId: 22854
+                  Token: 6B45C7CE1DBE40FCA193B0301678AF38
+                  Account:
+                    UserName: YYYY
+                    Password: YYYY1234!
       responses:
-        "204":
-          description: "Eliminato con successo."
-        default:
-          $ref: "#/components/responses/default"
+        "200":
+          description: HTTP 200 OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditResponse'
+              examples:
+                success:
+                  summary: successful credit response
+                  value:
+                    Balance: 504.54
+                    BonusBalance: 0.0
+                    TransactionId: "722_1280"
+                    UsedBonusMoney: 0.0
+                error_invalid_negative_amount:
+                  summary: 3 - invalid negative amount
+                  value:
+                    Error:
+                      ErrorCode: 3
+                      OperatorMessage: InvalidNegativeAmount
+                error_authentication_failed:
+                  summary: 4 - authentication failed
+                  value:
+                    Error:
+                      ErrorCode: 4
+                      OperatorMessage: AuthenticationFailed
+                error_token_expired:
+                  summary: 5 - token expired
+                  value:
+                    Error:
+                      ErrorCode: 5
+                      OperatorMessage: TokenExpired
+                error_invalid_game:
+                  summary: 7 - invalid game
+                  value:
+                    Error:
+                      ErrorCode: 7
+                      OperatorMessage: InvalidGame
+                error_invalid_token:
+                  summary: 8 - invalid token
+                  value:
+                    Error:
+                      ErrorCode: 8
+                      OperatorMessage: InvalidToken
+                error_invalid_round:
+                  summary: 9 - invalid round
+                  value:
+                    Error:
+                      ErrorCode: 9
+                      OperatorMessage: InvalidRound
+                error_invalid_user_id:
+                  summary: 10 - invalid user id
+                  value:
+                    Error:
+                      ErrorCode: 10
+                      OperatorMessage: InvalidUserId
+                error_transaction_already_settled:
+                  summary: 11 - transaction already settled
+                  value:
+                    Error:
+                      ErrorCode: 11
+                      OperatorMessage: TransactionAlreadySettled
+                error_account_is_locked:
+                  summary: 12 - account is locked
+                  value:
+                    Error:
+                      ErrorCode: 12
+                      OperatorMessage: AccountIsLocked
+                error_player_limit_exceeded_turnover:
+                  summary: 13 - player limit exceeded turnover
+                  value:
+                    Error:
+                      ErrorCode: 13
+                      OperatorMessage: PlayerLimitExceededTurnover
+                error_player_limit_exceeded_session_time:
+                  summary: 14 - player limit exceeded session time
+                  value:
+                    Error:
+                      ErrorCode: 14
+                      OperatorMessage: PlayerLimitExceededSessionTime
+                error_player_limit_exceeded_session_stake:
+                  summary: 15 - player limit exceeded session stake
+                  value:
+                    Error:
+                      ErrorCode: 15
+                      OperatorMessage: PlayerLimitExceededSessionStake
+                error_player_limit_exceeded_session_loss:
+                  summary: 16 - player limit exceeded session loss
+                  value:
+                    Error:
+                      ErrorCode: 16
+                      OperatorMessage: PlayerLimitExceededSessionLoss
+                error_round_already_ended:
+                  summary: 17 - round already ended
+                  value:
+                    Error:
+                      ErrorCode: 17
+                      OperatorMessage: RoundAlreadyEnded
+                error_transaction_already_cancelled:
+                  summary: 18 - transaction already cancelled
+                  value:
+                    Error:
+                      ErrorCode: 18
+                      OperatorMessage: TransactionAlreadyCancelled
+                error_player_have_opened_rounds:
+                  summary: 19 - player has opened rounds
+                  value:
+                    Error:
+                      ErrorCode: 19
+                      OperatorMessage: PlayerHaveOpenedRounds
+                error_daily_time_limit:
+                  summary: 22 - daily time limit
+                  value:
+                    Error:
+                      ErrorCode: 22
+                      OperatorMessage: DailyTimeLimit
+                error_weekly_time_limit:
+                  summary: 23 - weekly time limit
+                  value:
+                    Error:
+                      ErrorCode: 23
+                      OperatorMessage: WeeklyTimeLimit
+                error_monthly_time_limit:
+                  summary: 24 - monthly time limit
+                  value:
+                    Error:
+                      ErrorCode: 24
+                      OperatorMessage: MonthlyTimeLimit
+                error_yearly_time_limit:
+                  summary: 25 - yearly time limit
+                  value:
+                    Error:
+                      ErrorCode: 25
+                      OperatorMessage: YearlyTimeLimit
+                error_responsible_gaming_limit_reached:
+                  summary: 26 - responsible gaming limit reached
+                  value:
+                    Error:
+                      ErrorCode: 26
+                      OperatorMessage: ResponsibleGamingLimitReached
+                error_session_time_limit_reached:
+                  summary: 27 - session time limit reached
+                  value:
+                    Error:
+                      ErrorCode: 27
+                      OperatorMessage: SessionTimeLimitReached
+                error_session_loss_limit_reached:
+                  summary: 28 - session loss limit reached
+                  value:
+                    Error:
+                      ErrorCode: 28
+                      OperatorMessage: SessionLossLimitReached
+                error_invalid_game_platform:
+                  summary: 29 - invalid game platform
+                  value:
+                    Error:
+                      ErrorCode: 29
+                      OperatorMessage: InvalidGamePlatform
+                error_invalid_currency:
+                  summary: 30 - invalid currency
+                  value:
+                    Error:
+                      ErrorCode: 30
+                      OperatorMessage: InvalidCurrency
+                error_geo_location:
+                  summary: 31 - geo location
+                  value:
+                    Error:
+                      ErrorCode: 31
+                      OperatorMessage: GeoLocation
+                error_geo_location_non_fatal:
+                  summary: 301 - geo location non-fatal
+                  value:
+                    Error:
+                      ErrorCode: 301
+                      OperatorMessage: GeoLocation
+                error_general_error:
+                  summary: 900 - general error
+                  value:
+                    Error:
+                      ErrorCode: 900
+                      OperatorMessage: GeneralError
+  /EndGame:
+    post:
+      tags:
+        - Financial Integration
+      summary: End Game
+      operationId: endGame
+      description: |
+        The EndGame request is used whenever a round is over and there was no EndGame (true) parameter in either Debit or Credit.
+
+        It is the explicit round-closure call when no separate credit is needed or when the vendor chooses to close the round separately.
+
+        HTTP code of an error response should be 200.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndGameRequest'
+            examples:
+              standard_end_game:
+                summary: standard end game request
+                value:
+                  Account:
+                    UserName: username
+                    Password: secret_password
+                  Token: 000000024FFF7AD26CAB85d7b20ae049b07cfdb104bfa312ed
+                  GameCode: PP_HTML5_aliceriches94
+                  PlayerId: 2102220244-9932077778
+                  RoundId: R2R-PSUK_36975078
+                  TransactionId: "57400434"
+      responses:
+        "200":
+          description: HTTP 200 OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndGameResponse'
+              examples:
+                success:
+                  summary: successful end game response
+                  value:
+                    Balance: 706.02
+                    TransactionId: "57459497"
+                    Timestamp: "2025-10-07T11:53:45Z"
+                    Message:
+                      DisplayType: 2
+                      MessageType: 1
+                      MessageContent:
+                        Title: Promo Unlocked!
+                        Text: You have unlocked your promotion.
+                        Buttons:
+                          - Text: Continue
+                            Action: continue
+                error_authentication_failed:
+                  summary: 4 - authentication failed
+                  value:
+                    Error:
+                      ErrorCode: 4
+                      OperatorMessage: AuthenticationFailed
+                error_token_expired:
+                  summary: 5 - token expired
+                  value:
+                    Error:
+                      ErrorCode: 5
+                      OperatorMessage: TokenExpired
+                error_invalid_game:
+                  summary: 7 - invalid game
+                  value:
+                    Error:
+                      ErrorCode: 7
+                      OperatorMessage: InvalidGame
+                error_invalid_token:
+                  summary: 8 - invalid token
+                  value:
+                    Error:
+                      ErrorCode: 8
+                      OperatorMessage: InvalidToken
+                error_invalid_round:
+                  summary: 9 - invalid round
+                  value:
+                    Error:
+                      ErrorCode: 9
+                      OperatorMessage: InvalidRound
+                error_invalid_user_id:
+                  summary: 10 - invalid user id
+                  value:
+                    Error:
+                      ErrorCode: 10
+                      OperatorMessage: InvalidUserId
+                error_transaction_already_settled:
+                  summary: 11 - transaction already settled
+                  value:
+                    Error:
+                      ErrorCode: 11
+                      OperatorMessage: TransactionAlreadySettled
+                error_account_is_locked:
+                  summary: 12 - account is locked
+                  value:
+                    Error:
+                      ErrorCode: 12
+                      OperatorMessage: AccountIsLocked
+                error_player_limit_exceeded_turnover:
+                  summary: 13 - player limit exceeded turnover
+                  value:
+                    Error:
+                      ErrorCode: 13
+                      OperatorMessage: PlayerLimitExceededTurnover
+                error_player_limit_exceeded_session_time:
+                  summary: 14 - player limit exceeded session time
+                  value:
+                    Error:
+                      ErrorCode: 14
+                      OperatorMessage: PlayerLimitExceededSessionTime
+                error_player_limit_exceeded_session_stake:
+                  summary: 15 - player limit exceeded session stake
+                  value:
+                    Error:
+                      ErrorCode: 15
+                      OperatorMessage: PlayerLimitExceededSessionStake
+                error_player_limit_exceeded_session_loss:
+                  summary: 16 - player limit exceeded session loss
+                  value:
+                    Error:
+                      ErrorCode: 16
+                      OperatorMessage: PlayerLimitExceededSessionLoss
+                error_round_already_ended:
+                  summary: 17 - round already ended
+                  value:
+                    Error:
+                      ErrorCode: 17
+                      OperatorMessage: RoundAlreadyEnded
+                error_daily_time_limit:
+                  summary: 22 - daily time limit
+                  value:
+                    Error:
+                      ErrorCode: 22
+                      OperatorMessage: DailyTimeLimit
+                error_weekly_time_limit:
+                  summary: 23 - weekly time limit
+                  value:
+                    Error:
+                      ErrorCode: 23
+                      OperatorMessage: WeeklyTimeLimit
+                error_monthly_time_limit:
+                  summary: 24 - monthly time limit
+                  value:
+                    Error:
+                      ErrorCode: 24
+                      OperatorMessage: MonthlyTimeLimit
+                error_yearly_time_limit:
+                  summary: 25 - yearly time limit
+                  value:
+                    Error:
+                      ErrorCode: 25
+                      OperatorMessage: YearlyTimeLimit
+                error_responsible_gaming_limit_reached:
+                  summary: 26 - responsible gaming limit reached
+                  value:
+                    Error:
+                      ErrorCode: 26
+                      OperatorMessage: ResponsibleGamingLimitReached
+                error_session_time_limit_reached:
+                  summary: 27 - session time limit reached
+                  value:
+                    Error:
+                      ErrorCode: 27
+                      OperatorMessage: SessionTimeLimitReached
+                error_session_loss_limit_reached:
+                  summary: 28 - session loss limit reached
+                  value:
+                    Error:
+                      ErrorCode: 28
+                      OperatorMessage: SessionLossLimitReached
+                error_invalid_game_platform:
+                  summary: 29 - invalid game platform
+                  value:
+                    Error:
+                      ErrorCode: 29
+                      OperatorMessage: InvalidGamePlatform
+                error_geo_location:
+                  summary: 31 - geo location
+                  value:
+                    Error:
+                      ErrorCode: 31
+                      OperatorMessage: GeoLocation
+                error_geo_location_non_fatal:
+                  summary: 301 - geo location non-fatal
+                  value:
+                    Error:
+                      ErrorCode: 301
+                      OperatorMessage: GeoLocation
+                error_general_error:
+                  summary: 900 - general error
+                  value:
+                    Error:
+                      ErrorCode: 900
+                      OperatorMessage: GeneralError
+  /DebitAndCredit:
+    post:
+      tags:
+        - Financial Integration
+      summary: DebitAndCredit
+      operationId: debitAndCredit
+      description: |
+        Endpoint is missing from the EVI because it is a custom vendor-specific requirement rather than a standard integration feature. It likely comes from a DVI integration—specifically  Evolution , which uses a combined debit and credit call:
+      x-source-flag: Canonicalized to `DebitAndCredit` on 2026-04-22 per foi-canonicalization-decisions.md row 14. Source also uses `DebitCredit`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DebitAndCreditRequest'
+            examples:
+              standard_debit_and_credit:
+                summary: standard debit and credit request
+                value:
+                  Account:
+                    UserName: username
+                    Password: secret_password
+                  GameCode: PP_HTML5_AmericanRoulette_Desktop
+                  PlayerId: "20452"
+                  RoundId: R2R-FS-UK_36979826
+                  TransactionId: "57413550"
+                  DebitAmount: 0.5
+                  CreditAmount: 1.5
+                  CreditType: NormalWin
+                  Feature: Normal
+                  TicketAmount: 1
+                  Token: 056ABE497C164BE887CDEE2CCC258E15
+      responses:
+        "200":
+          description: HTTP 200 OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DebitAndCreditResponse'
+              examples:
+                success:
+                  summary: successful debit and credit response
+                  value:
+                    Balance: 80.21
+                    TransactionId: "57476386"
+                    Timestamp: "2025-10-08T14:02:33Z"
+                    Message:
+                      DisplayType: 2
+                      MessageType: 1
+                      MessageContent:
+                        Title: Promo Unlocked!
+                        Text: You have unlocked your promotion.
+                        Buttons:
+                          - Text: Continue
+                            Action: continue
+                error_invalid_negative_amount:
+                  summary: 3 - invalid negative amount
+                  value:
+                    Error:
+                      ErrorCode: 3
+                      OperatorMessage: InvalidNegativeAmount
+                error_authentication_failed:
+                  summary: 4 - authentication failed
+                  value:
+                    Error:
+                      ErrorCode: 4
+                      OperatorMessage: AuthenticationFailed
+                error_token_expired:
+                  summary: 5 - token expired
+                  value:
+                    Error:
+                      ErrorCode: 5
+                      OperatorMessage: TokenExpired
+                error_invalid_game:
+                  summary: 7 - invalid game
+                  value:
+                    Error:
+                      ErrorCode: 7
+                      OperatorMessage: InvalidGame
+                error_invalid_token:
+                  summary: 8 - invalid token
+                  value:
+                    Error:
+                      ErrorCode: 8
+                      OperatorMessage: InvalidToken
+                error_invalid_round:
+                  summary: 9 - invalid round
+                  value:
+                    Error:
+                      ErrorCode: 9
+                      OperatorMessage: InvalidRound
+                error_invalid_user_id:
+                  summary: 10 - invalid user id
+                  value:
+                    Error:
+                      ErrorCode: 10
+                      OperatorMessage: InvalidUserId
+                error_transaction_already_settled:
+                  summary: 11 - transaction already settled
+                  value:
+                    Error:
+                      ErrorCode: 11
+                      OperatorMessage: TransactionAlreadySettled
+                error_account_is_locked:
+                  summary: 12 - account is locked
+                  value:
+                    Error:
+                      ErrorCode: 12
+                      OperatorMessage: AccountIsLocked
+                error_player_limit_exceeded_turnover:
+                  summary: 13 - player limit exceeded turnover
+                  value:
+                    Error:
+                      ErrorCode: 13
+                      OperatorMessage: PlayerLimitExceededTurnover
+                error_player_limit_exceeded_session_time:
+                  summary: 14 - player limit exceeded session time
+                  value:
+                    Error:
+                      ErrorCode: 14
+                      OperatorMessage: PlayerLimitExceededSessionTime
+                error_player_limit_exceeded_session_stake:
+                  summary: 15 - player limit exceeded session stake
+                  value:
+                    Error:
+                      ErrorCode: 15
+                      OperatorMessage: PlayerLimitExceededSessionStake
+                error_player_limit_exceeded_session_loss:
+                  summary: 16 - player limit exceeded session loss
+                  value:
+                    Error:
+                      ErrorCode: 16
+                      OperatorMessage: PlayerLimitExceededSessionLoss
+                error_round_already_ended:
+                  summary: 17 - round already ended
+                  value:
+                    Error:
+                      ErrorCode: 17
+                      OperatorMessage: RoundAlreadyEnded
+                error_transaction_already_cancelled:
+                  summary: 18 - transaction already cancelled
+                  value:
+                    Error:
+                      ErrorCode: 18
+                      OperatorMessage: TransactionAlreadyCancelled
+                error_player_have_opened_rounds:
+                  summary: 19 - player has opened rounds
+                  value:
+                    Error:
+                      ErrorCode: 19
+                      OperatorMessage: PlayerHaveOpenedRounds
+                error_daily_time_limit:
+                  summary: 22 - daily time limit
+                  value:
+                    Error:
+                      ErrorCode: 22
+                      OperatorMessage: DailyTimeLimit
+                error_weekly_time_limit:
+                  summary: 23 - weekly time limit
+                  value:
+                    Error:
+                      ErrorCode: 23
+                      OperatorMessage: WeeklyTimeLimit
+                error_monthly_time_limit:
+                  summary: 24 - monthly time limit
+                  value:
+                    Error:
+                      ErrorCode: 24
+                      OperatorMessage: MonthlyTimeLimit
+                error_yearly_time_limit:
+                  summary: 25 - yearly time limit
+                  value:
+                    Error:
+                      ErrorCode: 25
+                      OperatorMessage: YearlyTimeLimit
+                error_responsible_gaming_limit_reached:
+                  summary: 26 - responsible gaming limit reached
+                  value:
+                    Error:
+                      ErrorCode: 26
+                      OperatorMessage: ResponsibleGamingLimitReached
+                error_session_time_limit_reached:
+                  summary: 27 - session time limit reached
+                  value:
+                    Error:
+                      ErrorCode: 27
+                      OperatorMessage: SessionTimeLimitReached
+                error_session_loss_limit_reached:
+                  summary: 28 - session loss limit reached
+                  value:
+                    Error:
+                      ErrorCode: 28
+                      OperatorMessage: SessionLossLimitReached
+                error_invalid_game_platform:
+                  summary: 29 - invalid game platform
+                  value:
+                    Error:
+                      ErrorCode: 29
+                      OperatorMessage: InvalidGamePlatform
+                error_invalid_currency:
+                  summary: 30 - invalid currency
+                  value:
+                    Error:
+                      ErrorCode: 30
+                      OperatorMessage: InvalidCurrency
+                error_geo_location:
+                  summary: 31 - geo location
+                  value:
+                    Error:
+                      ErrorCode: 31
+                      OperatorMessage: GeoLocation
+                error_geo_location_non_fatal:
+                  summary: 301 - geo location non-fatal
+                  value:
+                    Error:
+                      ErrorCode: 301
+                      OperatorMessage: GeoLocation
+                error_general_error:
+                  summary: 900 - general error
+                  value:
+                    Error:
+                      ErrorCode: 900
+                      OperatorMessage: GeneralError
+  /GetBalance:
+    post:
+      tags:
+        - Financial Integration
+      summary: Get Balance
+      operationId: getBalance
+      description: |
+        The GetBalance request is used occasionally when the game needs to validate the player's balance.
+
+        HTTP code of an error response should be 200.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetBalanceRequest'
+            examples:
+              standard_get_balance:
+                summary: standard get balance request
+                value:
+                  Account:
+                    UserName: testuser
+                    Password: qweqwe1
+                  Token: F3497FC0FE204EE7B50A2B11B72377BA
+                  PlayerId: "45"
+                  BrandId: "123"
+                  GameCode: ERB_HTML5_9SquarePoker
+      responses:
+        "200":
+          description: HTTP 200 OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetBalanceResponse'
+              examples:
+                success:
+                  summary: successful get balance response
+                  value:
+                    Balance: 999433.94
+                    BonusBalance: 0.0
+                    RoundsLeft: 0
+                error_authentication_failed:
+                  summary: 4 - authentication failed
+                  value:
+                    Error:
+                      ErrorCode: 4
+                      OperatorMessage: AuthenticationFailed
+                error_token_expired:
+                  summary: 5 - token expired
+                  value:
+                    Error:
+                      ErrorCode: 5
+                      OperatorMessage: TokenExpired
+                error_invalid_game:
+                  summary: 7 - invalid game
+                  value:
+                    Error:
+                      ErrorCode: 7
+                      OperatorMessage: InvalidGame
+                error_invalid_token:
+                  summary: 8 - invalid token
+                  value:
+                    Error:
+                      ErrorCode: 8
+                      OperatorMessage: InvalidToken
+                error_invalid_user_id:
+                  summary: 10 - invalid user id
+                  value:
+                    Error:
+                      ErrorCode: 10
+                      OperatorMessage: InvalidUserId
+                error_account_is_locked:
+                  summary: 12 - account is locked
+                  value:
+                    Error:
+                      ErrorCode: 12
+                      OperatorMessage: AccountIsLocked
+                error_general_error:
+                  summary: 900 - general error
+                  value:
+                    Error:
+                      ErrorCode: 900
+                      OperatorMessage: GeneralError
+  /CancelTransaction:
+    post:
+      tags:
+        - Financial Integration
+      summary: Cancel Transaction
+      operationId: cancelTransaction
+      description: |
+        The CancelTransaction request is used occasionally when a game has to refund a wager or win.
+
+        Note: The balance in the error response will be returned only if possible.
+
+        This single operator-side cancellation endpoint can cancel debit or credit transactions based on the referenced transaction ID.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelTransactionRequest'
+            examples:
+              standard_cancel_transaction:
+                summary: standard cancel transaction request
+                value:
+                  TransactionId: "6885"
+                  RefTransactionId: "6885"
+                  PlayerId: "45"
+                  RoundId: PP_76968
+                  CancelEntireRound: true
+                  GameCode: PP_Flash_FixedOdds_LasCucasLocas
+                  Token: 91356f9e-7469-4cf5-b126-acad3cec08fc
+                  Account:
+                    UserName: testuser
+                    Password: qweqwe1
+      responses:
+        "200":
+          description: HTTP 200 OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelTransactionResponse'
+              examples:
+                success:
+                  summary: successful cancel transaction response
+                  value:
+                    Balance: 451.64
+                    BonusBalance: 0.0
+                    TransactionId: "734_1312"
+                    UsedBonusMoney: 0.0
+                error_authenticate_failed:
+                  summary: authenticate failed (code 4)
+                  value:
+                    ErrorCode: 4
+                    ErrorMessage: AuthenticateFailed
+                error_invalid_token:
+                  summary: invalid token (code 8)
+                  value:
+                    ErrorCode: 8
+                    ErrorMessage: InvalidToken
+                error_token_expired:
+                  summary: token expired (code 5)
+                  value:
+                    ErrorCode: 5
+                    ErrorMessage: TokenExpired
+                error_unknown_transaction_id:
+                  summary: unknown transaction id (code 6)
+                  value:
+                    ErrorCode: 6
+                    ErrorMessage: UnknownTransactionId
+                error_invalid_game:
+                  summary: invalid game (code 7)
+                  value:
+                    ErrorCode: 7
+                    ErrorMessage: InvalidGame
+                error_invalid_round:
+                  summary: invalid round (code 9)
+                  value:
+                    ErrorCode: 9
+                    ErrorMessage: InvalidRound
+                error_invalid_user_id:
+                  summary: invalid user id (code 10)
+                  value:
+                    ErrorCode: 10
+                    ErrorMessage: InvalidUserId
+                error_transaction_already_settled:
+                  summary: transaction already settled (code 11)
+                  value:
+                    ErrorCode: 11
+                    ErrorMessage: TransactionAlreadySettled
+                error_transaction_already_cancelled:
+                  summary: transaction already cancelled (code 18)
+                  value:
+                    ErrorCode: 18
+                    ErrorMessage: TransactionAlreadyCancelled
+                error_general_error:
+                  summary: general error (code 900)
+                  value:
+                    ErrorCode: 900
+                    ErrorMessage: GeneralError
+  /CreateToken:
+    post:
+      tags:
+        - ATS
+      summary: CreateToken (Mandatory)
+      operationId: createToken
+      description: |
+        This method is used to simulate a LaunchGame request, and is responsible for creating a new token in the operator DB. The operator creates a new Token for the specific player and game.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTokenRequest'
+            examples:
+              standard_create_token:
+                summary: standard create token request
+                value:
+                  Token: ad5326b9-1cc1-4f9d-9c40-ed2a91d03089
+                  Account:
+                    UserName: testuser
+                    Password: qweqwe1
+                  PlayerId: "45"
+                  GameCode: PP_Flash_FixedOdds_LasCucasLocas
+                  FinancialMode: 0
+      responses:
+        "200":
+          description: HTTP 200 OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateTokenResponse'
+              examples:
+                success:
+                  summary: successful create token response
+                  value: {}
+                error_authenticate_failed:
+                  summary: authenticate failed (code 4)
+                  value:
+                    ErrorCode: 4
+                    ErrorMessage: AuthenticateFailed
+                error_invalid_token:
+                  summary: invalid token (code 8)
+                  value:
+                    ErrorCode: 8
+                    ErrorMessage: InvalidToken
+                error_general_error:
+                  summary: general error (code 900)
+                  value:
+                    ErrorCode: 900
+                    ErrorMessage: GeneralError
+  /CloseOpenedRounds:
+    post:
+      tags:
+        - ATS
+      summary: CloseOpenedRounds (Mandatory)
+      operationId: closeOpenedRounds
+      description: |
+        This method is used to close all open rounds for the specified player and game.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseOpenedRoundsRequest'
+            examples:
+              standard_close_opened_rounds:
+                summary: standard close opened rounds request
+                value:
+                  Account:
+                    UserName: testuser
+                    Password: qweqwe1
+                  PlayerId: "45"
+                  GameCode: PP_Flash_FixedOdds_LasCucasLocas
+      responses:
+        "200":
+          description: HTTP 200 OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloseOpenedRoundsResponse'
+              examples:
+                success:
+                  summary: successful close opened rounds response
+                  value: {}
+                error_authenticate_failed:
+                  summary: authenticate failed (code 4)
+                  value:
+                    ErrorCode: 4
+                    ErrorMessage: AuthenticateFailed
+                error_general_error:
+                  summary: general error (code 900)
+                  value:
+                    ErrorCode: 900
+                    ErrorMessage: GeneralError
+  /SetRoundsLeft:
+    post:
+      tags:
+        - ATS
+      summary: SetRoundsLeft - e-Commerce mode (Optional)
+      operationId: setRoundsLeft
+      description: |
+        This method is used to set the number of rounds left for the specified player.
+
+        It is used in e-commerce mode to update the number of remaining purchased or assigned rounds.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetRoundsLeftRequest'
+            examples:
+              standard_set_rounds_left:
+                summary: standard set rounds left request
+                value:
+                  Account:
+                    UserName: testuser
+                    Password: qweqwe1
+                  PlayerId: "45"
+                  GameCode: PP_Flash_FixedOdds_LasCucasLocas
+                  Amount: 5
+                  Token: ad5326b9-1cc1-4f9d-9c40-ed2a91d03089
+      responses:
+        "200":
+          description: HTTP 200 OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SetRoundsLeftResponse'
+              examples:
+                success:
+                  summary: successful set rounds left response
+                  value: {}
+                error_authenticate_failed:
+                  summary: authenticate failed (code 4)
+                  value:
+                    ErrorCode: 4
+                    ErrorMessage: AuthenticateFailed
+                error_invalid_token:
+                  summary: invalid token (code 8)
+                  value:
+                    ErrorCode: 8
+                    ErrorMessage: InvalidToken
+                error_general_error:
+                  summary: general error (code 900)
+                  value:
+                    ErrorCode: 900
+                    ErrorMessage: GeneralError
+  /FreeSpinsNotification:
+    post:
+      tags:
+        - Promotional Tools
+      summary: FreeSpinsNotification
+      operationId: freeSpinsNotification
+      description: |
+        This endpoint should be implemented if operators need to receive information about FreeSpinAwards distributed from Tournament or LuckyWheel rewards or different types of amounts which are awarded to the player in the game. In that case, the FreeSpin awards will not be sent to the vendor, but instead sent to this endpoint for vendor handling at operator's discretion. This feature can be enabled by contacting AGGREGATOR's support team.
+
+        Note: The following table lists the properties that are specific to the given endpoint. For any property in the example response, but not present in the respective description table, a full description can be found in the sections of one of the main financial calls(Debit, Credit, and so on)
+
+        The operator remains the party that accepts, tracks, and validates the player entitlement.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FreeSpinsNotificationRequest'
+            examples:
+              standard_free_spins_notification:
+                summary: standard free spins notification request
+                value:
+                  Account:
+                    UserName: testuser
+                    Password: qweqwe1
+                  TournamentId: "123"
+                  PlayerId: "321"
+                  GameCode: PP_HTML5_AlohaFortune
+                  NumberFreeRounds: 5
+                  ExpirationDate: "2020-02-19T16:00:00Z"
+                  CountryCode: AU
+                  PlayerRegulation: 0
+                  CurrencyCode: AUD
+                  Token: "5694d293-49ee-4a62-8b84-e5e7d378f30e "
+      responses:
+        "200":
+          description: HTTP 200 OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FreeSpinsNotificationResponse'
+              examples:
+                success:
+                  summary: successful free spins notification response
+                  value:
+                    Balance: 10000
+                    BonusBalance: 500
+                    TransactionId: T123
+                    ActualEcommerceTicketPrice: null
+                    Timestamp: "2021-11-10T09:00:00Z"
+                    MessageContent: string
+                error_authenticate_failed:
+                  summary: authenticate failed (code 4)
+                  value:
+                    ErrorCode: 4
+                    ErrorMessage: AuthenticateFailed
+                error_invalid_token:
+                  summary: invalid token (code 8)
+                  value:
+                    ErrorCode: 8
+                    ErrorMessage: InvalidToken
+                error_general_error:
+                  summary: general error (code 900)
+                  value:
+                    ErrorCode: 900
+                    ErrorMessage: GeneralError
+  /RegulationNotification:
+    post:
+      tags:
+        - Regulations
+      summary: Regulation Notification
+      operationId: regulationNotification
+      description: |
+        The RegulationNotification request is sent every 60 minutes from the time of login. If the player is in the middle of a round when the request is sent, he should be able to finish the round first, and only then the message will be displayed.
+      x-source-flag: Source defines this endpoint twice in identical form; preserved as a single operation per foi-canonicalization-decisions.md row 16.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegulationNotificationRequest'
+            examples:
+              standard_regulation_notification:
+                summary: standard regulation notification request
+                value:
+                  Token: e36fafc0-264e-4abf-85d5-1d736cc5b3f1
+                  PlayerId: "123456"
+                  Account:
+                    UserName: testuser
+                    Password: qweqwe1
+      responses:
+        "200":
+          description: HTTP 200 OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegulationNotificationResponse'
+              examples:
+                success:
+                  summary: successful regulation notification response
+                  value:
+                    NetLoss: 451.64
+                error_authenticate_failed:
+                  summary: authenticate failed (code 4)
+                  value:
+                    ErrorCode: 4
+                    ErrorMessage: AuthenticateFailed
+                error_invalid_token:
+                  summary: invalid token (code 8)
+                  value:
+                    ErrorCode: 8
+                    ErrorMessage: InvalidToken
+                error_general_error:
+                  summary: general error (code 900)
+                  value:
+                    ErrorCode: 900
+                    ErrorMessage: GeneralError
+  /PortugueseNotification:
+    post:
+      tags:
+        - Regulations
+      summary: Portuguese Notification
+      operationId: portugueseNotification
+      description: |
+        The PortugueseNotification request will be sent to the operator immediately after the round is successfully ended. The request will be sent only once, that is, there will be no Retry on the round SM_RESULT. SM_RESULT can be requested manually if the operator system does not receive it. The SM_RESULT details will be sent as list of details - one for each spin during a round. Each SM_RESULT will be limited to 4000 symbols.
+
+        In addition to SM_RESULT, Blackjack, Roulette, Baccarat and Banca Francesa results are sent depending on the game category. In such scenarios, SM_RESULT would be empty and the result would be contained in the related object.
+      x-source-flag: Canonicalized endpoint naming to `PortugueseNotification` on 2026-04-22 per foi-canonicalization-decisions.md row 15.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortugueseNotificationRequest'
+            examples:
+              standard_portuguese_notification:
+                summary: standard portuguese notification request
+                value:
+                  Token: "e36fafc0 - 264e-4 abf - 85 d5 - 1 d736cc5b3f1"
+                  GameCategory: "123456"
+                  GameCode: "MGA_s5mga1001142"
+                  RoundId: ""
+                  SmResult: ""
+                  Details:
+                    - TransactionType: ""
+                      CreatedDate: ""
+                      TransactionId: 123123
+                      Descrap: ""
+                      MQLIN: 1
+                      SmResult: ""
+                      InitialReturn: 12
+                      MQDOB: 1
+                  Blackjack: {}
+                  Roulette: {}
+                  Baccarat: {}
+                  Crash: []
+                  Account:
+                    UserName: testuser
+                    Password: qweqwe1
+              blackjack_notification:
+                summary: BLACKJACK notification request example
+                x-source-flag: Source provides the Blackjack model but no dedicated Blackjack request example in the extracted Markdown.
+                value:
+                  RoundId: DWI-BPT_134918900
+                  GameCategory: BLACKJACK
+                  GameCode: DWI_BJ
+                  PlayerId: "10444618"
+                  Details:
+                    - CreatedDate: "0001-01-01T00:00:00Z"
+                      TransactionId: 0
+                      MQLIN: 0
+                      SmResult: ""
+                      InitialReturn: 0
+                      MQDOB: 0
+                  SmResult: ""
+                  Blackjack:
+                    Details:
+                      - BetAmount: 5
+                        WinAmount: 10
+                        Position: "1"
+                        DealerCards: 10S-JC
+                        PlayerCards: 5D-5H
+                        Result: "1"
+                        DescrAp: Bet of 5.00 EUR ON Blackjack
+                        RefundAmount: 0
+                  Roulette: {}
+                  BancaFrancesa: {}
+                  Baccarat: {}
+                  Crash: []
+                  Token: 43020AA0F2EF445797147F755FEEE0B8
+                  Account:
+                    UserName: xxx
+                    Password: xxx
+              roulette_notification:
+                summary: ROULETTE notification request example
+                value:
+                  RoundId: DWI-BPT_134918789
+                  GameCategory: Roulette
+                  GameCode: DWI_ROL
+                  PlayerId: "10444618"
+                  Details:
+                    - CreatedDate: "0001-01-01T00:00:00Z"
+                      TransactionId: 0
+                      MQLIN: 0
+                      SmResult: ""
+                      InitialReturn: 0
+                      MQDOB: 0
+                  SmResult: ""
+                  Blackjack: {}
+                  Roulette:
+                    Details:
+                      - BetAmount: 4.4
+                        WinAmount: 0
+                        Number: "12"
+                        Color: V
+                        DescrAp: "141#4.40;149#7.00;"
+                        RefundAmount: 0
+                      - BetAmount: 7
+                        WinAmount: 0
+                        Number: "12"
+                        Color: V
+                        DescrAp: "141#4.40;149#7.00;"
+                        RefundAmount: 0
+                    ISB:
+                      - date_time: "2025-07-18 14:21:47"
+                        transaction_id: "296897414"
+                        round_id: "134918789"
+                        descr_ap: "141#4.4;149#7;"
+                        bet_amount: "11.4"
+                        external_transaction_id: "79593398881"
+                      - date_time: "2025-07-18 14:21:47"
+                        transaction_id: "296897421"
+                        round_id: "134918789"
+                        r_valor: "0"
+                        g_ganho: "0"
+                        ro_result_nr: "12"
+                        ro_result_cor: V
+                        external_transaction_id: "79593398881"
+                  BancaFrancesa: {}
+                  Baccarat: {}
+                  Crash: []
+                  Token: EC78B39686EC4C4BA1937B9F7E490EB7
+                  Account:
+                    UserName: xxx
+                    Password: xxx
+              bancafrancesa_notification:
+                summary: BANCAFRANCESA notification request example
+                value:
+                  RoundId: FBM-KZNP_fe0c275697694204b1cde3e045c2e03d
+                  GameCategory: BANCA FRANCESA
+                  GameCode: FBM_bancafrancesafbmds
+                  PlayerId: "212650933"
+                  Details:
+                    - CreatedDate: "0001-01-01T00:00:00Z"
+                      TransactionId: 0
+                      MQLIN: 0
+                      SmResult: ""
+                      InitialReturn: 0
+                      MQDOB: 0
+                  SmResult: ""
+                  Blackjack: {}
+                  Roulette: {}
+                  BancaFrancesa:
+                    Details:
+                      - BetAmount: 1.5
+                        WinAmount: 3
+                        BetDetails: "R#PE#X;4;2;1"
+                        DescrAp: "bancafrancesafbmds#AS;0.00#GR;0.00#LG;0.00#PE;1.50#LP;0.00"
+                  Baccarat: {}
+                  Crash: []
+                  Token: 0A31DC677EC84DD79DB43A368697D381
+                  Account:
+                    UserName: xxx
+                    Password: xxx
+              crash_notification:
+                summary: Crash notification request example
+                value:
+                  RoundId: DWI-BPT_134918473
+                  GameCategory: Crash
+                  GameCode: DWI_CRAEBC
+                  PlayerId: "55207174"
+                  Details:
+                    - CreatedDate: "0001-01-01T00:00:00Z"
+                      TransactionId: 0
+                      MQLIN: 0
+                      SmResult: ""
+                      InitialReturn: 0
+                      MQDOB: 0
+                  SmResult: ""
+                  Blackjack: {}
+                  Roulette: {}
+                  BancaFrancesa: {}
+                  Baccarat: {}
+                  Crash:
+                    - TransactionType: bet
+                      DateTime: "2025-07-18T14:20:37Z"
+                      TransactionId: "296896723"
+                      Descr_ap: Bet of 0.82 EUR ON Crash Betclic
+                    - TransactionType: win
+                      DateTime: "2025-07-18T14:20:46Z"
+                      TransactionId: "296896816"
+                      SmResult: "R#0.82#0.00#1.02#L;"
+                      InitialReturn: "0"
+                  Token: BF6DEC29857445609E7B5C17C4E5A833
+                  Account:
+                    UserName: xxx
+                    Password: xxx
+              baccarat_notification:
+                summary: baccarat notification request example
+                x-source-flag: Canonicalized to Baccarat on 2026-04-22 per foi-canonicalization-decisions.md row 30. Source example includes additional category-specific fields outside the generic request model.
+                value:
+                  Account:
+                    UserName: "*"
+                    Password: "*"
+                  Token: "235235432523"
+                  RoundId: "2459786"
+                  GameCategory: BACCARAT
+                  GameCode: "DWI_BAC"
+                  PlayerId: "10444618"
+                  Details: []
+                  SmResult: ""
+                  Blackjack: {}
+                  Roulette: {}
+                  BancaFrancesa: {}
+                  Crash: []
+                  Baccarat:
+                    Details:
+                      - BetAmount: 5
+                        WinAmount: 1.2
+                        Position: "1"
+                        DealerCards: 10S-JC
+                        DealerHandValue: "8"
+                        PlayerCards: 5D-5H
+                        PlayerHandValue: "3"
+                        Bets:
+                          Player: 1.0
+                          Banker: 4.0
+                          Tie: 0.0
+                        Winnings:
+                          Player: 1.0
+                          Banker: 4.0
+                          Tie: 0.0
+                        DescrAp: Bet of 100.00 EUR ON Blackjack VIP
+                        RefundAmount: 10
+      responses:
+        "200":
+          description: HTTP 200 OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortugueseNotificationResponse'
+              examples:
+                success:
+                  summary: empty portuguese notification response
+                  value: {}
+                error_authenticate_failed:
+                  summary: authenticate failed (code 4)
+                  value:
+                    ErrorCode: 4
+                    ErrorMessage: AuthenticateFailed
+                error_invalid_token:
+                  summary: invalid token (code 8)
+                  value:
+                    ErrorCode: 8
+                    ErrorMessage: InvalidToken
+                error_general_error:
+                  summary: general error (code 900)
+                  value:
+                    ErrorCode: 900
+                    ErrorMessage: GeneralError
+components:
+  schemas:
+    Account:
+      type: object
+      description: |
+        Username and password credentials passed inside the `Account` object
+
+        Source discrepancy: some request tables in the manual omit `Account`, but JSON examples include it. In the EndGame request table `Account` is marked mandatory while the remark calls it optional and sportsbook-specific
+
+        Decision: model `Account` as optional in request schemas
+      required:
+        - UserName
+        - Password
+      properties:
+        UserName:
+          type: string
+          description: Username parameter within the Account object
+          x-source-flag: Canonicalized to `Account.UserName` on 2026-04-22 per foi-canonicalization-decisions.md row 9.
+        Password:
+          type: string
+          description: Password parameter within the Account object
+    JackpotDetailsParameter:
+      type: object
+      properties:
+        JackpotId:
+          type: string
+          description: Jackpot ID from the Jackpot feed if available.
+        JackpotName:
+          type: string
+          description: Jackpot name from the Jackpot feed if available.
+        CurrencyCode:
+          type: string
+          maxLength: 3
+          description: The currency of the jackpot according to ISO.
+        Amount:
+          oneOf:
+            - type: number
+              format: double
+            - type: string
+          description: Jackpot contribution or win amount. Manual examples sometimes send decimals as JSON strings.
+    SubTicket:
+      type: object
+      properties:
+        SubTicketNumber:
+          type: integer
+          description: Serial number of the sub ticket. For a single ticket game, value should always be 1.
+        SubTicketCreditAmount:
+          type: number
+          format: double
+          description: Credit amount of the normal win of the sub ticket.
+        SubTicketDebitAmount:
+          type: number
+          format: double
+          description: Debit amount of the sub ticket.
+        SubTicketPrizeMultiplier:
+          type: number
+          format: double
+          description: Prize multiplier of the specific sub ticket.
+        SubTicketJackpotAmount:
+          type: number
+          format: double
+          description: Credit amount of the progressive win of the sub ticket.
+    Taxes:
+      type: object
+      description: |
+        Split Tax: If enabled, the requests to the operator will show what is the initial bet and what is the tax amount in different parameters
+      properties:
+        BetAmount:
+          type: number
+          format: double
+          description: "The amount of the bet. Decimal value - note: manual examples sometimes send decimals as JSON strings"
+        TaxAmount:
+          type: number
+          format: double
+          description: "The amount of tax calculated. Decimal value - note: manual examples sometimes send decimals as JSON strings"
+    MessageButton:
+      type: object
+      properties:
+        Text:
+          type: string
+          description: Text of the button
+          example: Quit Game
+        Action:
+          type: string
+          description: "One of: quit - exit game; cashier - open cashier; history - open history; continue - close popup; link - open custom link"
+          example: quit
+        Link:
+          type: string
+          description: URL to open when action is link
+          example: https://www.casino.com/myaccount/history
+        LinkType:
+          type: integer
+          description: How the link is handled (1 = Redirect, 2 = Ajax, 3 = AjaxResponse)
+          example: 1
+    MessageContent:
+      type: object
+      properties:
+        DisplayType:
+          type: integer
+          description: Missing in table in Manual, appears in examples only
+          example: 1
+        Title:
+          type: string
+          description: Title of the popup message
+          example: Title for the popup message
+        Text:
+          type: string
+          description: Message text. Use \\n or \\r\\n for line breaks
+          example: "message. Including \\r\\n or just \\n for enter"
+        Buttons:
+          type: array
+          description: List of buttons available for the popup
+          items:
+            $ref: '#/components/schemas/MessageButton'
+          example:
+            - Text: Quit Game
+              Action: quit
+            - Text: Ok
+              Action: continue
+            - Text: View History
+              Action: link
+              Link: https://www.casino.com/myaccount/history
+    MessageItem:
+      type: object
+      example:
+        DisplayType: 1
+        MessageType: 1
+        MessageContent:
+          Title: Title for the popup message
+          Text: "message. Including \\r\\n or just \\n for enter"
+          Buttons:
+            - Text: Quit Game
+              Action: quit
+            - Text: Ok
+              Action: continue
+            - Text: View History
+              Action: link
+              Link: https://www.casino.com/myaccount/history
+      properties:
+        DisplayType:
+          type: integer
+          description: 1 = Notification, 2 = Popup (intrusive)
+          example: 1
+        MessageType:
+          type: integer
+          description: 1 = Custom, 2 = Bonus wallet message, 3 = Cash wallet message
+          example: 1
+        MessageContent:
+          $ref: '#/components/schemas/MessageContent'
+    OperatorError:
+      type: object
+      properties:
+        ErrorCode:
+          type: integer
+          description: Operator error code
+        Balance:
+          type: number
+          nullable: true
+          description: "Note: The balance in the error response will be returned only if possible"
+        OperatorMessage:
+          type: string
+          nullable: true
+          description: Operator error message
+    AuthenticateRequest:
+      type: object
+      required:
+        - Token
+        - PlayerId
+      properties:
+        Account:
+          allOf:
+            - $ref: '#/components/schemas/Account'
+          description: Operator credentials. Source request example includes Account, but the parameter table does not list it.
+        Token:
+          type: string
+          maxLength: 1000
+          description: The token of the player for a specific game. It is mapped to the vendor-side token used after EVI Authenticate.
+        PlayerId:
+          type: string
+          maxLength: 50
+          description: The unique ID of the player inside the casino system.
+          x-source-flag: Canonicalized to `PlayerId` on 2026-04-22 per foi-canonicalization-decisions.md row 1.
+        PlatformType:
+          type: integer
+          enum:
+            - 1
+            - 2
+            - 3
+          description: The game platform of the game. 1 = Desktop, 2 = Mobile, 3 = CrossPlatform.
+        BrandId:
+          type: string
+          maxLength: 8
+          nullable: true
+          description: Used to differentiate brands on the operator side when operators use the same account in the aggregator system.
+    AuthenticateResponse:
+      oneOf:
+        - $ref: '#/components/schemas/AuthenticateSuccessResponse'
+        - $ref: '#/components/schemas/AuthenticateErrorResponse'
+    AuthenticateSuccessResponse:
+      type: object
+      required:
+        - Balance
+        - Error
+      properties:
+        Balance:
+          type: number
+          format: double
+          description: The balance of the player. Example 100.50.
+        Error:
+          type: object
+          nullable: true
+          enum:
+            - null
+          description: Must be null on success responses.
+        BonusBalance:
+          type: number
+          format: double
+          nullable: true
+          description: The bonus balance of the player. Example 100.50.
+        FinancialMode:
+          type: integer
+          nullable: true
+          enum:
+            - 0
+            - 1
+            - null
+          description: Financial mode. 0 = Wallet, 1 = Ecommerce. Default value is 0.
+        RoundsLeft:
+          type: integer
+          nullable: true
+          description: The number of rounds left for the player. Only relevant when FinancialMode is 1, Ecommerce mode.
+        EcommerceTicketPrice:
+          type: number
+          format: double
+          nullable: true
+          description: Ticket price. Mandatory only if FinancialMode is 1, Ecommerce.
+        Timestamp:
+          type: string
+          format: date-time
+          nullable: true
+          description: Date and time the operator sent the response, in ISO 8601 format.
+        SecondOperatorToken:
+          type: string
+          maxLength: 1000
+          nullable: true
+          description: New game session token returned by the operator. If provided, it is used as Token in further financial calls.
+        Tier:
+          type: string
+          nullable: true
+          description: The tier optionally identifies the value segment to which the player has been assigned by the operator.
+        UserSettings:
+          allOf:
+            - $ref: '#/components/schemas/UserSettings'
+          description: Specific player parameters.
+    AuthenticateErrorResponse:
+      type: object
+      required:
+        - Error
+      properties:
+        Error:
+          type: object
+          description: Object defining the error. Object is null on success response.
+          required:
+            - ErrorCode
+          properties:
+            ErrorCode:
+              type: integer
+              enum:
+                - 4
+                - 5
+                - 8
+                - 10
+                - 12
+                - 13
+                - 14
+                - 15
+                - 16
+                - 900
+            OperatorMessage:
+              type: string
+              nullable: true
+              description: Error description. Informative, not forwarded to the game provider.
+              enum:
+                - AuthenticationFailed
+                - TokenExpired
+                - InvalidToken
+                - InvalidUserId
+                - AccountIsLocked
+                - PlayerLimitExceededTurnover
+                - PlayerLimitExceededSessionTime
+                - PlayerLimitExceededSessionStake
+                - PlayerLimitExceededSessionLoss
+                - GeneralError
+            Balance:
+              type: number
+              format: double
+              nullable: true
+              description: The balance of the player.
+            BonusBalance:
+              type: number
+              format: double
+              nullable: true
+              description: The bonus balance of the player.
+            RoundsLeft:
+              type: integer
+              nullable: true
+              description: The number of rounds left for the player. Only relevant when FinancialMode is 1, Ecommerce mode.
+    UserSettings:
+      type: object
+      properties:
+        MaxBet:
+          oneOf:
+            - type: number
+              format: double
+            - type: string
+          nullable: true
+          description: To support UKGC maximum stake limits, operators should provide the maximum bet in the player's currency based on the player's age.
+        MaxExposure:
+          oneOf:
+            - type: number
+              format: double
+            - type: string
+          nullable: true
+          description: The max exposure amount.
+        MinBet:
+          oneOf:
+            - type: number
+              format: double
+            - type: string
+          nullable: true
+          description: Minimum bet amount if the game provider supports it.
+        DefaultBet:
+          oneOf:
+            - type: number
+              format: double
+            - type: string
+          nullable: true
+          description: Default bet if the game provider supports it.
+    FinancialSuccessPayload:
+      type: object
+      required:
+        - Balance
+        - TransactionId
+      properties:
+        Balance:
+          type: number
+          format: double
+          description: The balance of the player
+        BonusBalance:
+          type: number
+          format: double
+          nullable: true
+          description: The bonus balance of the player
+        TransactionId:
+          type: string
+          description: A unique Transaction ID
+        UsedBonusMoney:
+          type: number
+          format: double
+          nullable: true
+          description: Missing in table in Manual, appears in examples only
+        ExtraData:
+          type: string
+          nullable: true
+          description: Optional custom parameter
+        RoundsLeft:
+          type: integer
+          nullable: true
+          description: The number of rounds left for the player. Relevant only when FinancialMode is ecommerce
+        ActualEcommerceTicketPrice:
+          type: number
+          format: double
+          nullable: true
+          description: Actual ticket price paid (after discount)
+        Timestamp:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO 8601 timestamp of when the operator sent the response
+        Message:
+          type: object
+          nullable: true
+          description: Message shown client-side after the round (spin) is over
+          x-source-flag: "Source discrepancy: manual tables model `Message` as an object, but some manual examples show it as an array. Modeled as object per decision 2026-04-25"
+          allOf:
+            - $ref: '#/components/schemas/MessageItem'
+        DebitFundsSource:
+          type: integer
+          nullable: true
+          description: Source of wallet funds (1 - converted to bonus money; 2 - converted to real money; 3 or null - no change). Used where regulation requires source-of-funds reporting.
+        MessageContent:
+          type: string
+          nullable: true
+          description: The message text
+        BrandId:
+          type: string
+          nullable: true
+          description: Used to differentiate brands when operator uses one account in aggregator system
+    DebitRequest:
+      type: object
+      required:
+        - Token
+        - GameCode
+        - PlayerId
+        - RoundId
+        - TransactionId
+        - Amount
+        - Feature
+      properties:
+        Account:
+          $ref: '#/components/schemas/Account'
+        Token:
+          type: string
+          description: "The token of the player for a specific game. Note: GameCode might be different from the GameCode used in LaunchGame for some games"
+        GameCode:
+          type: string
+          description: The game code
+        PlayerId:
+          type: string
+          description: The unique ID of the player inside the casino system
+          x-source-flag: Canonicalized to `PlayerId` on 2026-04-22 per foi-canonicalization-decisions.md row 1.
+        RoundId:
+          type: string
+          description: The ID of the specific round in the game
+          x-source-flag: Canonicalized to `RoundId` on 2026-04-22 per foi-canonicalization-decisions.md row 2.
+        TransactionId:
+          type: string
+          description: A unique transaction ID
+        Amount:
+          type: number
+          format: double
+          description: "Debit amount. Decimal value - note: manual examples sometimes send decimals as JSON strings"
+        EndGame:
+          type: boolean
+          nullable: true
+          description: An indication if the round is ended. If true, the same Debit call also closes the round.
+        Feature:
+          type: string
+          description: |
+            The feature which credited the player. The feature is an enum-like value. Known values:
+            - Normal - normal bet.
+            - Offer - the debit transaction is for a Microgaming free game offer.
+            - BonusWin - bet related to a bonus (Free Games).
+            - TournamentEntryFee - if the operator specifies that there is an entry fee for the tournament, HUB will send a debit request to the operator with FeatureType.
+            - TournamentNormal - debits related to the tournament.
+            - RainDropsCampaigns - used with the Rain Drops.
+            - RainDropsPlayer - used with the Rain Drops feature when initiated on player's side.
+            - ChallengeCampaigns - challenges such as Missions, Race, Tournament.
+            - PrizeDrop.
+            - DailyFreeGames.
+            - Tipping.
+            - BINGO_GEW.
+            - GoldenChip.
+            - NonFinancialPrize.
+            - RaffleNormal.
+            - RaffleEntryFee.
+
+            More features can be added in the future.
+
+            Features identify out-of-game or promotional reasons for the transaction. Tipping is a player tip to a live dealer, GoldenChip is a live-game chip granted outside the cash wallet, and DailyFreeGames is an Aristocrat daily mission or daily free game reward.
+        FeatureType:
+          type: string
+          nullable: true
+          deprecated: true
+          description: Target-supported alias retained for backward compatibility. Source uses Feature.
+        FeatureAmount:
+          type: number
+          format: double
+          nullable: true
+          description: "Feature amount (sent only if the player is in active tournament). Decimal value - note: manual examples sometimes send decimals as JSON strings"
+        JackpotContribution:
+          type: number
+          format: double
+          nullable: true
+          description: The sum of contribution amounts to all jackpots listed in JackpotDetailsParameters.
+        JackpotDetailsParameters:
+          type: array
+          nullable: true
+          description: Contains jackpot parameters where the bet has contributed. One bet can contribute to multiple jackpots.
+          items:
+            $ref: '#/components/schemas/JackpotDetailsParameter'
+        Taxes:
+          type: object
+          nullable: true
+          description: German Tax specific - optional. Represents the split of the debit amount into bet amount and tax amount
+          allOf:
+            - $ref: '#/components/schemas/Taxes'
+        FeatureId:
+          type: string
+          nullable: true
+          description: The ID of the feature (Tournament ID / FreeSpinsBlaster CampaignID/ Bonus ID / Offer Code). For example, if the bet is eligible for Freespins, it is marked so that Operator doesn't deduct money from Player's wallet. Identifies the specific tournament, bonus, campaign, or offer instance.
+        TransactionConfiguration:
+          type: array
+          nullable: true
+          description: Array of options. Refer to the Transaction Configuration Table (optional, vendor-specific)
+          items:
+            type: integer
+        GameType:
+          type: integer
+          nullable: true
+          description: Missing in table in Manual, appears in examples only
+        BetSlipGroupId:
+          type: integer
+          nullable: true
+          description: Aggregated identifier to search financial actions in BTOBet Back Office. Optional, specific to BtoBet Sportsbook
+        TicketAmount:
+          type: integer
+          nullable: true
+          description: Ticket amount to be deducted from player's tickets (e-commerce mode)
+        RoomId:
+          type: integer
+          nullable: true
+          description: Identifies the room where the financial action took place. Optional, specific to Bingo
+        IsBingo:
+          type: boolean
+          nullable: true
+          description: Indicates that the game is a Bingo game. Optional, specific to Bingo
+        FreeRoundCount:
+          type: integer
+          nullable: true
+          description: Current free round count. Specific for some game providers. Informative free-round sequence counter; vendor and operator both count free rounds, and the operator may use it for fraud control.
+        LastFreeRound:
+          type: boolean
+          nullable: true
+          description: Indicates whether the bet is the last free round. Specific for some game providers. Informative flag; the operator may still apply its own counting.
+        BrandId:
+          type: string
+          maxLength: 8
+          nullable: true
+          description: Used to differentiate brands on the operator side when operators use one account in the aggregator system.
+        AdditionalInfo:
+          type: object
+          nullable: true
+          description: Object with parameters specific to game providers, used by agreement between the game provider and operator.
+          additionalProperties: true
+    DebitResponse:
+      oneOf:
+        - $ref: '#/components/schemas/DebitSuccessResponse'
+        - $ref: '#/components/schemas/DebitErrorResponse'
+    DebitSuccessResponse:
+      allOf:
+        - $ref: '#/components/schemas/FinancialSuccessPayload'
+    DebitErrorResponse:
+      type: object
+      required:
+        - Error
+      properties:
+        Error:
+          type: object
+          description: Object defining the error. Object is null on success response.
+          required:
+            - ErrorCode
+          properties:
+            ErrorCode:
+              type: integer
+              enum:
+                - 1
+                - 3
+                - 4
+                - 5
+                - 7
+                - 8
+                - 9
+                - 10
+                - 11
+                - 12
+                - 13
+                - 14
+                - 15
+                - 16
+                - 17
+                - 18
+                - 19
+                - 20
+                - 21
+                - 22
+                - 23
+                - 24
+                - 25
+                - 26
+                - 27
+                - 28
+                - 29
+                - 30
+                - 31
+                - 301
+                - 900
+            OperatorMessage:
+              type: string
+              nullable: true
+              description: Error description. Informative, not forwarded to the game provider.
+              enum:
+                - InsufficientFunds
+                - InvalidNegativeAmount
+                - AuthenticationFailed
+                - TokenExpired
+                - InvalidGame
+                - InvalidToken
+                - InvalidRound
+                - InvalidUserId
+                - TransactionAlreadySettled
+                - AccountIsLocked
+                - PlayerLimitExceededTurnover
+                - PlayerLimitExceededSessionTime
+                - PlayerLimitExceededSessionStake
+                - PlayerLimitExceededSessionLoss
+                - RoundAlreadyEnded
+                - TransactionAlreadyCancelled
+                - PlayerHaveOpenedRounds
+                - NoRoundsLeft
+                - BetAmountUnderMinimum
+                - DailyTimeLimit
+                - WeeklyTimeLimit
+                - MonthlyTimeLimit
+                - YearlyTimeLimit
+                - ResponsibleGamingLimitReached
+                - SessionTimeLimitReached
+                - SessionLossLimitReached
+                - InvalidGamePlatform
+                - InvalidCurrency
+                - GeoLocation
+                - GeoLocation
+                - GeneralError
+            Balance:
+              type: number
+              format: double
+              nullable: true
+              description: The balance of the player.
+            BonusBalance:
+              type: number
+              format: double
+              nullable: true
+              description: The bonus balance of the player.
+            RoundsLeft:
+              type: integer
+              nullable: true
+              description: The number of rounds left for the player. Only relevant when FinancialMode is 1, Ecommerce mode.
+
+    CreditRequest:
+      type: object
+      required:
+        - Token
+        - GameCode
+        - PlayerId
+        - RoundId
+        - TransactionId
+        - Amount
+        - CreditType
+        - Feature
+      properties:
+        Account:
+          $ref: '#/components/schemas/Account'
+        Token:
+          type: string
+          description: "The token of the player for a specific game. Note: GameCode might be different from the GameCode used in LaunchGame for some games"
+        FreeRoundCount:
+          type: integer
+          nullable: true
+          description: Sequence number of the Free Spin of unique BonusId. Informative free-round sequence counter; vendor and operator both count free rounds.
+        LastFreeRound:
+          type: boolean
+          nullable: true
+          description: Indication for last Free Spin of unique BonusId. Informative flag; the operator may still apply its own counting.
+        GameCode:
+          type: string
+          description: The game (by code) to be launched
+        PlayerId:
+          type: string
+          description: The unique ID of the player inside the casino system
+          x-source-flag: Canonicalized to `PlayerId` on 2026-04-22 per foi-canonicalization-decisions.md row 1.
+        RoundId:
+          type: string
+          description: The ID of the specific round in the game
+          x-source-flag: Canonicalized to `RoundId` on 2026-04-22 per foi-canonicalization-decisions.md row 2.
+        TransactionId:
+          type: string
+          description: A unique transaction ID
+        Amount:
+          type: number
+          format: double
+          description: "Credit amount. Decimal value - note: manual examples sometimes send decimals as JSON strings"
+        CreditType:
+          type: string
+          enum:
+            - NormalWin
+            - ProgressiveWin
+            - NonFinancialPrize
+          description: Type of win. Possible values are NormalWin, ProgressiveWin, and NonFinancialPrize.
+        EndGame:
+          type: boolean
+          nullable: true
+          description: An indication if the round is ended.
+        PlatformType:
+          type: integer
+          nullable: true
+          enum:
+            - 1
+            - 2
+            - 3
+          description: The game platform. 1 = Desktop, 2 = Mobile, 3 = CrossPlatform.
+        Feature:
+          type: string
+          nullable: true
+          description: |
+            The feature which credited the player. The feature is an enum-like value. Known values:
+            - Normal - normal bet.
+            - Offer - the debit transaction is for a Microgaming free game offer.
+            - BonusWin - bet related to a bonus (Free Games).
+            - TournamentEntryFee - if the operator specifies that there is an entry fee for the tournament, HUB will send a debit request to the operator with FeatureType.
+            - TournamentNormal - debits related to the tournament.
+            - RainDropsCampaigns - used with the Rain Drops.
+            - RainDropsPlayer - used with the Rain Drops feature when initiated on player's side.
+            - ChallengeCampaigns - challenges such as Missions, Race, Tournament.
+            - PrizeDrop.
+            - DailyFreeGames.
+            - Tipping.
+            - BINGO_GEW.
+            - GoldenChip.
+            - NonFinancialPrize.
+            - RaffleNormal.
+            - RaffleEntryFee.
+
+            More features can be added in the future.
+        JackpotDetailsParameters:
+          type: array
+          nullable: true
+          description: Contains jackpot parameters. Can contain more than one object.
+          items:
+            $ref: '#/components/schemas/JackpotDetailsParameter'
+        FeatureId:
+          type: string
+          nullable: true
+          description: ID of the feature (Tournament ID / Bonus ID / Offer Code)
+        TransactionConfiguration:
+          type: array
+          nullable: true
+          description: Optional, vendor-specific configuration
+          items:
+            type: integer
+        RoomId:
+          type: integer
+          nullable: true
+          description: Identifies the room (optional, bingo-specific)
+        IsBingo:
+          type: boolean
+          nullable: true
+          description: Indicates bingo game (optional)
+        GameType:
+          type: integer
+          nullable: true
+          description: Missing in table in Manual, appears in examples only
+        BetSlipGroupId:
+          type: integer
+          nullable: true
+          description: Aggregated identifier for sportsbook (BtoBet specific)
+        FeatureAmount:
+          type: number
+          format: double
+          nullable: true
+          description: Feature amount, sent only if the player is in an active tournament.
+        TicketAmount:
+          type: integer
+          nullable: true
+          description: Ticket amount to be deducted from player's tickets in e-commerce mode.
+        Taxes:
+          type: object
+          nullable: true
+          description: Represents the split of the debit amount to the bet amount and tax amount.
+          allOf:
+            - $ref: '#/components/schemas/Taxes'
+        BrandId:
+          type: string
+          maxLength: 8
+          nullable: true
+          description: Used to differentiate brands on the operator side when operators use one account in the aggregator system.
+        AdditionalInfo:
+          type: object
+          nullable: true
+          description: Object with parameters specific to game providers.
+          additionalProperties: true
+        SubTickets:
+          type: array
+          nullable: true
+          description: Regulatory requirement for Virginia, West Virginia, and Massachusetts lottery operators.
+          items:
+            $ref: '#/components/schemas/SubTicket'
+        Result:
+          type: object
+          nullable: true
+          description: Additional data for Sportsbook or horse racing games.
+          additionalProperties: true
+    CreditResponse:
+      oneOf:
+        - $ref: '#/components/schemas/CreditSuccessResponse'
+        - $ref: '#/components/schemas/CreditErrorResponse'
+    CreditSuccessResponse:
+      allOf:
+        - $ref: '#/components/schemas/FinancialSuccessPayload'
+    CreditErrorResponse:
+      type: object
+      required:
+        - Error
+      properties:
+        Error:
+          type: object
+          description: Object defining the error. Object is null on success response.
+          required:
+            - ErrorCode
+          properties:
+            ErrorCode:
+              type: integer
+              enum:
+                - 3
+                - 4
+                - 5
+                - 7
+                - 8
+                - 9
+                - 10
+                - 11
+                - 12
+                - 13
+                - 14
+                - 15
+                - 16
+                - 17
+                - 18
+                - 19
+                - 22
+                - 23
+                - 24
+                - 25
+                - 26
+                - 27
+                - 28
+                - 29
+                - 30
+                - 31
+                - 301
+                - 900
+            OperatorMessage:
+              type: string
+              nullable: true
+              description: Error description. Informative, not forwarded to the game provider.
+              enum:
+                - InvalidNegativeAmount
+                - AuthenticationFailed
+                - TokenExpired
+                - InvalidGame
+                - InvalidToken
+                - InvalidRound
+                - InvalidUserId
+                - TransactionAlreadySettled
+                - AccountIsLocked
+                - PlayerLimitExceededTurnover
+                - PlayerLimitExceededSessionTime
+                - PlayerLimitExceededSessionStake
+                - PlayerLimitExceededSessionLoss
+                - RoundAlreadyEnded
+                - TransactionAlreadyCancelled
+                - PlayerHaveOpenedRounds
+                - DailyTimeLimit
+                - WeeklyTimeLimit
+                - MonthlyTimeLimit
+                - YearlyTimeLimit
+                - ResponsibleGamingLimitReached
+                - SessionTimeLimitReached
+                - SessionLossLimitReached
+                - InvalidGamePlatform
+                - InvalidCurrency
+                - GeoLocation
+                - GeoLocation
+                - GeneralError
+            Balance:
+              type: number
+              format: double
+              nullable: true
+              description: The balance of the player.
+            BonusBalance:
+              type: number
+              format: double
+              nullable: true
+              description: The bonus balance of the player.
+            RoundsLeft:
+              type: integer
+              nullable: true
+              description: The number of rounds left for the player. Only relevant when FinancialMode is 1, Ecommerce mode.
+
+    EndGameRequest:
+      type: object
+      required:
+        - Token
+        - GameCode
+        - PlayerId
+        - RoundId
+        - TransactionId
+      properties:
+        Account:
+          $ref: '#/components/schemas/Account'
+        Token:
+          type: string
+          maxLength: 1000
+          description: The token of the player for a specific game. If SecondOperatorToken was provided in Authenticate response, that value is used in financial calls.
+        GameCode:
+          type: string
+          maxLength: 100
+          description: The game ID by code.
+        PlayerId:
+          type: string
+          maxLength: 50
+          x-source-flag: Canonicalized to `PlayerId` on 2026-04-22 per foi-canonicalization-decisions.md row 1.
+          description: The unique ID of the player inside the casino system.
+        RoundId:
+          type: string
+          maxLength: 100
+          x-source-flag: Canonicalized to `RoundId` on 2026-04-22 per foi-canonicalization-decisions.md row 2.
+          description: The ID of the specific round in the game.
+        TransactionId:
+          type: string
+          description: A unique transaction ID.
+        TransactionConfiguration:
+          type: array
+          nullable: true
+          description: Array of options. Refer to the Transaction Configuration Table. Optional, applicable for specific vendors.
+          items:
+            type: integer
+        RoomId:
+          type: integer
+          nullable: true
+          description: Identifies the room where the financial action took place. Optional, Bingo-specific.
+        IsBingo:
+          type: boolean
+          nullable: true
+          description: Indicates that the financial action happened in a Bingo game. Optional, Bingo-specific.
+        FreeRoundCount:
+          type: integer
+          nullable: true
+          description: Current free round count. Specific for some game providers.
+        LastFreeRound:
+          type: boolean
+          nullable: true
+          description: Indicates whether the bet is the last free round. Specific for some game providers.
+        BrandId:
+          type: string
+          maxLength: 8
+          nullable: true
+          description: Used to differentiate brands on the operator side when operators use one account in the aggregator system.
+        Result:
+          type: object
+          nullable: true
+          description: Additional data for Sportsbook or horse racing games. Specific for some game providers.
+          additionalProperties: true
+    EndGameResponse:
+      oneOf:
+        - $ref: '#/components/schemas/EndGameSuccessResponse'
+        - $ref: '#/components/schemas/EndGameErrorResponse'
+    EndGameSuccessResponse:
+      allOf:
+        - $ref: '#/components/schemas/FinancialSuccessPayload'
+    EndGameErrorResponse:
+      type: object
+      required:
+        - Error
+      properties:
+        Error:
+          type: object
+          description: Object defining the error. Object is null on success response.
+          required:
+            - ErrorCode
+          properties:
+            ErrorCode:
+              type: integer
+              enum:
+                - 4
+                - 5
+                - 7
+                - 8
+                - 9
+                - 10
+                - 11
+                - 12
+                - 13
+                - 14
+                - 15
+                - 16
+                - 17
+                - 22
+                - 23
+                - 24
+                - 25
+                - 26
+                - 27
+                - 28
+                - 29
+                - 31
+                - 301
+                - 900
+            OperatorMessage:
+              type: string
+              nullable: true
+              description: Error description. Informative, not forwarded to the game provider.
+              enum:
+                - AuthenticationFailed
+                - TokenExpired
+                - InvalidGame
+                - InvalidToken
+                - InvalidRound
+                - InvalidUserId
+                - TransactionAlreadySettled
+                - AccountIsLocked
+                - PlayerLimitExceededTurnover
+                - PlayerLimitExceededSessionTime
+                - PlayerLimitExceededSessionStake
+                - PlayerLimitExceededSessionLoss
+                - RoundAlreadyEnded
+                - DailyTimeLimit
+                - WeeklyTimeLimit
+                - MonthlyTimeLimit
+                - YearlyTimeLimit
+                - ResponsibleGamingLimitReached
+                - SessionTimeLimitReached
+                - SessionLossLimitReached
+                - InvalidGamePlatform
+                - GeoLocation
+                - GeneralError
+            Balance:
+              type: number
+              format: double
+              nullable: true
+              description: The balance of the player.
+            BonusBalance:
+              type: number
+              format: double
+              nullable: true
+              description: The bonus balance of the player.
+            RoundsLeft:
+              type: integer
+              nullable: true
+              description: The number of rounds left for the player. Only relevant when FinancialMode is 1, Ecommerce mode.
+    DebitAndCreditRequest:
+      type: object
+      required:
+        - Token
+        - GameCode
+        - PlayerId
+        - RoundId
+        - TransactionId
+        - DebitAmount
+        - CreditAmount
+        - CreditType
+        - Feature
+      properties:
+        Account:
+          $ref: '#/components/schemas/Account'
+        Token:
+          type: string
+          maxLength: 1000
+          description: The token of the player for a specific game. GameCode might differ from the GameCode originally used in LaunchGame for some games. If SecondOperatorToken was provided in Authenticate response, that value is used in financial calls.
+        GameCode:
+          type: string
+          maxLength: 100
+          description: The game by code.
+        PlayerId:
+          type: string
+          maxLength: 50
+          x-source-flag: Canonicalized to `PlayerId` on 2026-04-22 per foi-canonicalization-decisions.md row 1.
+          description: The unique ID of the player inside the casino system.
+        RoundId:
+          type: string
+          maxLength: 100
+          x-source-flag: Canonicalized to `RoundId` on 2026-04-22 per foi-canonicalization-decisions.md row 2.
+          description: The ID of the specific round in the game.
+        TransactionId:
+          type: string
+          description: A unique transaction ID.
+        DebitAmount:
+          type: number
+          format: double
+          description: Debit or bet amount.
+        CreditAmount:
+          type: number
+          format: double
+          description: Credit or win amount.
+        CreditType:
+          type: string
+          enum:
+            - NormalWin
+            - ProgressiveWin
+            - NonFinancialPrize
+          description: Type of win.
+        Feature:
+          type: string
+          description: The feature which credited the player. More features can be added in the future. Identifies an out-of-game or promotional reason for the combined bet/win flow.
+        FeatureId:
+          type: string
+          nullable: true
+          description: The ID of the feature, such as TournamentID, BonusID, or Offer Code. Identifies the specific tournament, bonus, campaign, or offer instance.
+        FeatureAmount:
+          type: number
+          format: double
+          nullable: true
+          description: Feature amount, sent only if the player is in an active tournament.
+        TransactionConfiguration:
+          type: array
+          nullable: true
+          description: Array of options. Refer to the Transaction Configuration Table. Optional, applicable for specific vendors.
+          items:
+            type: integer
+        TicketAmount:
+          type: integer
+          nullable: true
+          description: Ticket amount to be deducted from player's tickets in e-commerce mode.
+        Taxes:
+          type: object
+          nullable: true
+          description: Represents the split of the debit amount into bet amount and tax amount.
+          allOf:
+            - $ref: '#/components/schemas/Taxes'
+        RoomId:
+          type: integer
+          nullable: true
+          description: Identifies the room where the financial action took place. Optional, Bingo-specific.
+        IsBingo:
+          type: boolean
+          nullable: true
+          description: Indicates that the financial action happened in a Bingo game. Optional, Bingo-specific.
+        JackpotContribution:
+          type: array
+          nullable: true
+          description: Contains jackpot parameters. It can contain more than one object.
+          items:
+            $ref: '#/components/schemas/JackpotDetailsParameter'
+        FreeRoundCount:
+          type: integer
+          nullable: true
+          description: Current free round count. Specific for some game providers.
+        LastFreeRound:
+          type: boolean
+          nullable: true
+          description: Indicates whether the bet is the last free round. Specific for some game providers.
+        BrandId:
+          type: string
+          maxLength: 8
+          nullable: true
+          description: Used to differentiate brands on the operator side when operators use one account in the aggregator system.
+    DebitAndCreditResponse:
+      oneOf:
+        - $ref: '#/components/schemas/DebitAndCreditSuccessResponse'
+        - $ref: '#/components/schemas/DebitAndCreditErrorResponse'
+    DebitAndCreditSuccessResponse:
+      allOf:
+        - $ref: '#/components/schemas/FinancialSuccessPayload'
+    DebitAndCreditErrorResponse:
+      type: object
+      required:
+        - Error
+      properties:
+        Error:
+          type: object
+          description: Object defining the error. Object is null on success response.
+          required:
+            - ErrorCode
+          properties:
+            ErrorCode:
+              type: integer
+              enum:
+                - 3
+                - 4
+                - 5
+                - 7
+                - 8
+                - 9
+                - 10
+                - 11
+                - 12
+                - 13
+                - 14
+                - 15
+                - 16
+                - 17
+                - 18
+                - 19
+                - 22
+                - 23
+                - 24
+                - 25
+                - 26
+                - 27
+                - 28
+                - 29
+                - 30
+                - 31
+                - 301
+                - 900
+            OperatorMessage:
+              type: string
+              nullable: true
+              description: Error description. Informative, not forwarded to the game provider.
+              enum:
+                - InvalidNegativeAmount
+                - AuthenticationFailed
+                - TokenExpired
+                - InvalidGame
+                - InvalidToken
+                - InvalidRound
+                - InvalidUserId
+                - TransactionAlreadySettled
+                - AccountIsLocked
+                - PlayerLimitExceededTurnover
+                - PlayerLimitExceededSessionTime
+                - PlayerLimitExceededSessionStake
+                - PlayerLimitExceededSessionLoss
+                - RoundAlreadyEnded
+                - TransactionAlreadyCancelled
+                - PlayerHaveOpenedRounds
+                - DailyTimeLimit
+                - WeeklyTimeLimit
+                - MonthlyTimeLimit
+                - YearlyTimeLimit
+                - ResponsibleGamingLimitReached
+                - SessionTimeLimitReached
+                - SessionLossLimitReached
+                - InvalidGamePlatform
+                - InvalidCurrency
+                - GeoLocation
+                - GeneralError
+            Balance:
+              type: number
+              format: double
+              nullable: true
+              description: The balance of the player.
+            BonusBalance:
+              type: number
+              format: double
+              nullable: true
+              description: The bonus balance of the player.
+            RoundsLeft:
+              type: integer
+              nullable: true
+              description: The number of rounds left for the player. Only relevant when FinancialMode is 1, Ecommerce mode.
+    GetBalanceRequest:
+      type: object
+      required:
+        - Token
+        - GameCode
+        - PlayerId
+      properties:
+        Account:
+          $ref: '#/components/schemas/Account'
+        Token:
+          type: string
+          maxLength: 1000
+          description: The token of the player for a specific game.
+        GameCode:
+          type: string
+          maxLength: 100
+          description: The game by code.
+        PlayerId:
+          type: string
+          maxLength: 50
+          x-source-flag: Canonicalized to `PlayerId` on 2026-04-22 per foi-canonicalization-decisions.md row 1.
+          description: The unique ID of the player inside the casino system.
+        BrandId:
+          type: string
+          maxLength: 8
+          nullable: true
+          description: Used to differentiate brands on the operator side when operators use the same account in the aggregator system.
+    GetBalanceResponse:
+      oneOf:
+        - $ref: '#/components/schemas/GetBalanceSuccessResponse'
+        - $ref: '#/components/schemas/GetBalanceErrorResponse'
+    GetBalanceSuccessResponse:
+      type: object
+      required:
+        - Balance
+      properties:
+        Balance:
+          type: number
+          format: double
+          description: The balance of the player.
+        BonusBalance:
+          type: number
+          format: double
+          nullable: true
+          description: The bonus balance of the player.
+        RoundsLeft:
+          type: integer
+          nullable: true
+          description: The number of rounds left for the player. Only relevant when FinancialMode is 1, Ecommerce mode.
+    GetBalanceErrorResponse:
+      type: object
+      required:
+        - Error
+      properties:
+        Error:
+          type: object
+          description: Object defining the error. Object is null on success response.
+          required:
+            - ErrorCode
+          properties:
+            ErrorCode:
+              type: integer
+              enum:
+                - 4
+                - 5
+                - 7
+                - 8
+                - 10
+                - 12
+                - 900
+            OperatorMessage:
+              type: string
+              nullable: true
+              description: Error description. Informative, not forwarded to the game provider.
+              enum:
+                - AuthenticationFailed
+                - TokenExpired
+                - InvalidGame
+                - InvalidToken
+                - InvalidUserId
+                - AccountIsLocked
+                - GeneralError
+            Balance:
+              type: number
+              format: double
+              nullable: true
+              description: The balance of the player.
+            BonusBalance:
+              type: number
+              format: double
+              nullable: true
+              description: The bonus balance of the player.
+            RoundsLeft:
+              type: integer
+              nullable: true
+              description: The number of rounds left for the player. Only relevant when FinancialMode is 1, Ecommerce mode.
+    CancelTransactionRequest:
+      type: object
+      required:
+        - Token
+        - RefTransactionId
+        - GameCode
+        - PlayerId
+        - CancelEntireRound
+        - TransactionId
+      properties:
+        Account:
+          $ref: '#/components/schemas/Account'
+        Token:
+          type: string
+          description: The token the player had when the round to be canceled was played
+        RefTransactionId:
+          type: string
+          description: "The original transaction ID as it was produced by the Fusion system. Note: when CancelEntireRound is false use this parameter for cancellation of a specific transaction. Used to find the original debit or credit depending on the cancellation case"
+        GameCode:
+          type: string
+          description: The game (by code) that was played during the round to be cancelled/refunded
+        PlayerId:
+          type: string
+          x-source-flag: Canonicalized to `PlayerId` on 2026-04-22 per foi-canonicalization-decisions.md row 1.
+          description: The unique ID of the player connected to this refund action
+        RoundId:
+          type: string
+          nullable: true
+          x-source-flag: Canonicalized to `RoundId` on 2026-04-22 per foi-canonicalization-decisions.md row 2.
+          description: "The ID of the specific round in the game. Note: when CancelEntireRound is true, use this parameter to cancel all transactions related to this round. When CancelEntireRound is false this parameter may or may not appear, but should be ignored"
+        CancelEntireRound:
+          type: boolean
+          description: Indicates whether the operator should cancel the entire round or only the RefTransactionId associated transaction. True cancels all transactions in the round; false cancels only the referenced transaction.
+        TransactionId:
+          type: string
+          description: A unique Transaction ID created specifically for this refund action
+        Reason:
+          type: string
+          nullable: true
+          description: Reason for transaction cancelation
+        Amount:
+          type: number
+          format: double
+          nullable: true
+          description: "Amount to refund from the transaction that is about to be cancelled. Can be null (it won't be null if and only if CancelEntireRound is false). Decimal value - note: manual examples sometimes send decimals as JSON strings"
+        RoomId:
+          type: integer
+          nullable: true
+          description: Identifies the room in which the financial action happened. Optional, specific to Bingo
+        IsBingo:
+          type: boolean
+          nullable: true
+          description: Indicates the financial action happened in a Bingo game. Optional, specific to Bingo
+    CancelTransactionResponse:
+      oneOf:
+        - $ref: '#/components/schemas/CancelTransactionSuccessResponse'
+        - $ref: '#/components/schemas/CancelTransactionErrorResponse'
+    CancelTransactionSuccessResponse:
+      allOf:
+        - $ref: '#/components/schemas/FinancialSuccessPayload'
+    CancelTransactionErrorResponse:
+      type: object
+      required:
+        - ErrorCode
+        - ErrorMessage
+      properties:
+        ErrorCode:
+          type: integer
+        ErrorMessage:
+          type: string
+          enum:
+            - AuthenticateFailed
+            - InvalidToken
+            - TokenExpired
+            - UnknownTransactionId
+            - InvalidGame
+            - InvalidRound
+            - InvalidUserId
+            - TransactionAlreadySettled
+            - TransactionAlreadyCancelled
+            - GeneralError
+          x-source-flag: "Reconstructed per errors-reconstruction-register-2026-04-24.md row 49; validated in errors-reconstruction-validation-2026-04-24.md row 49 (Status: Validated); canonicalized per foi-canonicalization-decisions.md"
+        Balance:
+          type: number
+          format: double
+          nullable: true
+        Timestamp:
+          type: string
+          format: date-time
+          nullable: true
+    CreateTokenRequest:
+      type: object
+      required:
+        - Token
+        - PlayerId
+        - GameCode
+      properties:
+        Account:
+          $ref: '#/components/schemas/Account'
+        Token:
+          type: string
+        PlayerId:
+          type: string
+          x-source-flag: Canonicalized to `PlayerId` on 2026-04-22 per foi-canonicalization-decisions.md row 1.
+        GameCode:
+          type: string
+        FinancialMode:
+          type: integer
+          nullable: true
+          enum:
+            - 0
+            - 1
+            - null
+          x-source-flag: "Schema relaxed per FOI-13 Spectral cleanup (2026-04-23): nullable enum now includes null"
+    CreateTokenResponse:
+      oneOf:
+        - $ref: '#/components/schemas/CreateTokenSuccessResponse'
+        - $ref: '#/components/schemas/CreateTokenErrorResponse'
+    CreateTokenSuccessResponse:
+      allOf:
+        - $ref: '#/components/schemas/EmptyObject'
+    CreateTokenErrorResponse:
+      type: object
+      required:
+        - ErrorCode
+        - ErrorMessage
+      properties:
+        ErrorCode:
+          type: integer
+        ErrorMessage:
+          type: string
+          enum:
+            - AuthenticateFailed
+            - InvalidToken
+            - GeneralError
+          x-source-flag: "Reconstructed per errors-reconstruction-register-2026-04-24.md row 52; validated in errors-reconstruction-validation-2026-04-24.md row 52 (Status: Validated); canonicalized per foi-canonicalization-decisions.md"
+    CloseOpenedRoundsRequest:
+      type: object
+      required:
+        - PlayerId
+        - GameCode
+      properties:
+        Account:
+          $ref: '#/components/schemas/Account'
+        PlayerId:
+          type: string
+          x-source-flag: Canonicalized to `PlayerId` on 2026-04-22 per foi-canonicalization-decisions.md row 1.
+        GameCode:
+          type: string
+    CloseOpenedRoundsResponse:
+      oneOf:
+        - $ref: '#/components/schemas/CloseOpenedRoundsSuccessResponse'
+        - $ref: '#/components/schemas/CloseOpenedRoundsErrorResponse'
+    CloseOpenedRoundsSuccessResponse:
+      allOf:
+        - $ref: '#/components/schemas/EmptyObject'
+    CloseOpenedRoundsErrorResponse:
+      type: object
+      required:
+        - ErrorCode
+        - ErrorMessage
+      properties:
+        ErrorCode:
+          type: integer
+        ErrorMessage:
+          type: string
+          enum:
+            - AuthenticateFailed
+            - GeneralError
+          x-source-flag: "Reconstructed per errors-reconstruction-register-2026-04-24.md row 50; validated in errors-reconstruction-validation-2026-04-24.md row 50 (Status: Validated); canonicalized per foi-canonicalization-decisions.md"
+    SetRoundsLeftRequest:
+      type: object
+      required:
+        - PlayerId
+        - Amount
+        - GameCode
+        - Token
+      properties:
+        Account:
+          $ref: '#/components/schemas/Account'
+        PlayerId:
+          type: string
+          x-source-flag: Canonicalized to `PlayerId` on 2026-04-22 per foi-canonicalization-decisions.md row 1.
+        Amount:
+          type: integer
+          description: Number of rounds left to set
+        GameCode:
+          type: string
+        Token:
+          type: string
+    SetRoundsLeftResponse:
+      oneOf:
+        - $ref: '#/components/schemas/SetRoundsLeftSuccessResponse'
+        - $ref: '#/components/schemas/SetRoundsLeftErrorResponse'
+    SetRoundsLeftSuccessResponse:
+      allOf:
+        - $ref: '#/components/schemas/EmptyObject'
+    SetRoundsLeftErrorResponse:
+      type: object
+      required:
+        - ErrorCode
+        - ErrorMessage
+      properties:
+        ErrorCode:
+          type: integer
+        ErrorMessage:
+          type: string
+          enum:
+            - AuthenticateFailed
+            - InvalidToken
+            - GeneralError
+          x-source-flag: "Reconstructed per errors-reconstruction-register-2026-04-24.md row 63; validated in errors-reconstruction-validation-2026-04-24.md row 63 (Status: Validated); canonicalized per foi-canonicalization-decisions.md"
+    FreeSpinsNotificationRequest:
+      type: object
+      required:
+        - PlayerId
+        - GameCode
+        - NumberFreeRounds
+        - ExpirationDate
+        - CountryCode
+        - CurrencyCode
+      properties:
+        TournamentId:
+          type: string
+          maxLength: 20
+          nullable: true
+          description: The ID of the tournament that awarded the FreeSpins.
+        PlayerId:
+          type: string
+          maxLength: 50
+          description: The ID of the player that won the FreeSpins.
+          x-source-flag: Canonicalized to `PlayerId` on 2026-04-22 per foi-canonicalization-decisions.md row 1.
+        GameCode:
+          type: string
+          maxLength: 100
+          description: The winning game GameCode.
+        NumberFreeRounds:
+          type: integer
+          description: The number of Free Spins won.
+        ExpirationDate:
+          type: string
+          format: date-time
+          description: The expiry date of the offer, in ISO 8601 format.
+        CountryCode:
+          type: string
+          maxLength: 2
+          description: The country of the player, using ISO 3166-1 code.
+        PlayerRegulation:
+          type: integer
+          nullable: true
+          description: The regulation of the player. Null means it will be taken from CountryCode.
+        CurrencyCode:
+          type: string
+          maxLength: 3
+          description: The currency of the player, using ISO 4217 currency code.
+        BetLevel:
+          type: integer
+          nullable: true
+          description: Optional bet level for the given free rounds.
+        CoinValue:
+          type: number
+          format: double
+          nullable: true
+          description: Optional coin value for the given free rounds.
+        LineNumber:
+          type: integer
+          nullable: true
+          description: Line number for the given free rounds. Relevant and mandatory only for iSoftBet games.
+        UsePoints:
+          type: boolean
+          nullable: true
+          description: Indicates if the free rounds will be with points mode. Relevant only for AGGREGATOR games. Default is false. Aristocrat-specific points-mode flag for free rounds.
+        AffiliateCode:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: Optional affiliate code, used when the operator has multiple affiliates.
+        Token:
+          type: string
+          nullable: true
+          description: Player token. Present in source example, but omitted from the request parameter table.
+        Account:
+          $ref: '#/components/schemas/Account'
+        BrandId:
+          type: string
+          nullable: true
+    FreeSpinsNotificationResponse:
+      oneOf:
+        - $ref: '#/components/schemas/FreeSpinsNotificationSuccessResponse'
+        - $ref: '#/components/schemas/FreeSpinsNotificationErrorResponse'
+    FreeSpinsNotificationSuccessResponse:
+      type: object
+      required:
+        - Balance
+        - TransactionId
+      properties:
+        Balance:
+          type: number
+          format: double
+          nullable: true
+        BonusBalance:
+          type: number
+          format: double
+          nullable: true
+        TransactionId:
+          type: string
+          nullable: true
+        RoundsLeft:
+          type: integer
+          nullable: true
+        ExtraData:
+          type: string
+          nullable: true
+        ActualEcommerceTicketPrice:
+          type: number
+          format: double
+          nullable: true
+        HouseProfit:
+          type: number
+          format: double
+          nullable: true
+        Timestamp:
+          type: string
+          format: date-time
+          nullable: true
+        MessageContent:
+          type: string
+          nullable: true
+    FreeSpinsNotificationErrorResponse:
+      type: object
+      required:
+        - ErrorCode
+        - ErrorMessage
+      properties:
+        ErrorCode:
+          type: integer
+        ErrorMessage:
+          type: string
+          enum:
+            - AuthenticateFailed
+            - InvalidToken
+            - GeneralError
+          x-source-flag: "Reconstructed per errors-reconstruction-register-2026-04-24.md row 58; validated in errors-reconstruction-validation-2026-04-24.md row 58 (Status: Validated); canonicalized per foi-canonicalization-decisions.md"
+    RegulationNotificationRequest:
+      type: object
+      required:
+        - Token
+      properties:
+        Token:
+          type: string
+          description: The token of the player for a specific game.
+        PlayerId:
+          type: string
+          nullable: true
+          description: The unique identifier of the player in the operator's system.
+          x-source-flag: Canonicalized to `PlayerId` on 2026-04-22 per foi-canonicalization-decisions.md row 1.
+        ResponsibleGamingUrl:
+          type: string
+          nullable: true
+          description: Responsible Gaming page URL opened from the Responsible Gaming button.
+        Account:
+          $ref: '#/components/schemas/Account'
+    RegulationNotificationResponse:
+      oneOf:
+        - $ref: '#/components/schemas/RegulationNotificationSuccessResponse'
+        - $ref: '#/components/schemas/RegulationNotificationErrorResponse'
+    RegulationNotificationSuccessResponse:
+      type: object
+      required:
+        - NetLoss
+      properties:
+        NetLoss:
+          type: number
+          format: double
+          description: The sum of bets minus the sum of wins in the login session. A negative amount means the player won more than they bet.
+        CurrencyType:
+          type: string
+          nullable: true
+          description: ISO 3 format. Not mandatory because it should be the same as BR currency.
+    RegulationNotificationErrorResponse:
+      type: object
+      required:
+        - ErrorCode
+        - ErrorMessage
+      properties:
+        ErrorCode:
+          type: integer
+        ErrorMessage:
+          type: string
+          enum:
+            - AuthenticateFailed
+            - InvalidToken
+            - GeneralError
+          x-source-flag: "Reconstructed per errors-reconstruction-register-2026-04-24.md row 61; validated in errors-reconstruction-validation-2026-04-24.md row 61 (Status: Validated); canonicalized per foi-canonicalization-decisions.md"
+    PortugueseRoundDetail:
+      type: object
+      required:
+        - SmResult
+      properties:
+        TransactionType:
+          type: string
+          nullable: true
+          description: The transaction type.
+        CreatedDate:
+          type: string
+          format: date-time
+          nullable: true
+          description: The transaction creation date and time.
+        TransactionId:
+          type: integer
+          format: int64
+          description: The unique transaction identifier.
+        Descrap:
+          type: string
+          nullable: true
+          description: Source-specific transaction description value.
+        MQLIN:
+          type: integer
+          description: Source-specific Portuguese reporting value.
+        SmResult:
+          type: string
+          nullable: true
+          maxLength: 4000
+          description: The SM_RESULT generated for the current spin. If the round contains multiple free spins, each free spin is represented by a separate SM_RESULT.
+        InitialReturn:
+          type: number
+          format: double
+          description: Initial return value for the transaction.
+        MQDOB:
+          type: integer
+          description: Source-specific Portuguese reporting value.
+    PortugueseRouletteResult:
+      type: object
+      description: Result data for a Roulette round.
+      properties:
+        Details:
+          type: array
+          description: Roulette round details.
+          items:
+            $ref: '#/components/schemas/PortugueseRouletteDetail'
+        ISB:
+          type: array
+          description: Additional roulette reporting rows shown in source examples.
+          items:
+            type: object
+            additionalProperties: true
+    PortugueseRouletteDetail:
+      type: object
+      properties:
+        BetAmount:
+          type: number
+          format: double
+          nullable: true
+          description: The amount of the bet placed. It may be null in winning transactions.
+        WinAmount:
+          type: number
+          format: double
+          description: The winning amount for the roulette detail.
+        Number:
+          type: string
+          description: Winning roulette number.
+        Color:
+          type: string
+          description: Winning roulette color outcome. Expected values are P, V, or 0.
+        DescrAp:
+          type: string
+          description: SRIJ roulette bet encoding, for example 1#0.40;2#0.50;.
+        RefundAmount:
+          type: number
+          format: double
+          description: The refund amount.
+    PortugueseBlackjackResult:
+      type: object
+      description: Result data for a Blackjack round.
+      properties:
+        Details:
+          type: array
+          description: Blackjack hand details.
+          items:
+            $ref: '#/components/schemas/PortugueseBlackjackDetail'
+    PortugueseBlackjackDetail:
+      type: object
+      properties:
+        DealerCards:
+          type: string
+          description: Hyphen-separated cards extracted by the dealer in the round.
+        PlayerCards:
+          type: string
+          description: Cards of the player hand being played.
+        BetAmount:
+          type: number
+          format: double
+          description: The amount of the bet placed.
+        WinAmount:
+          type: number
+          format: double
+          description: Total amount won in the associated player hand.
+        Position:
+          type: string
+          description: Player position at the table. For non-live dealer games, the default should be 1.
+        Result:
+          type: string
+          description: Hand result. 0 means lost, 1 means won, and 3 means tie.
+        DescrAp:
+          type: string
+          description: Bet description, for example Bet of x on y, where x is the amount in currency and y is the game name.
+        RefundAmount:
+          type: number
+          format: double
+          description: The refund amount.
+    PortugueseBancaFrancesaResult:
+      type: object
+      description: Result data for a Banca Francesa round.
+      properties:
+        Details:
+          type: array
+          description: Banca Francesa round details.
+          items:
+            $ref: '#/components/schemas/PortugueseBancaFrancesaDetail'
+    PortugueseBancaFrancesaDetail:
+      type: object
+      properties:
+        BetAmount:
+          type: number
+          format: double
+          nullable: true
+          description: The amount of the bet placed. It may be null in winning transactions.
+        WinAmount:
+          type: number
+          format: double
+          description: Total amount won in the associated player hand.
+        BetDetails:
+          type: string
+          description: SRIJ-formatted Banca Francesa bet string. It starts with BancaFrancesa#, then lists each bet area code and amount, separated by #.
+        DescrAp:
+          type: string
+          description: SRIJ-formatted result string. It starts with R#, contains the result code, and ends with #X plus the dice values separated by semicolons. Result codes include LN, PE, GR, and AS.
+        RefundAmount:
+          type: number
+          format: double
+          description: The refund amount.
+    PortugueseBaccaratResult:
+      type: object
+      description: Result data for a Baccarat round.
+      properties:
+        Details:
+          type: array
+          description: Baccarat hand details.
+          items:
+            $ref: '#/components/schemas/PortugueseBaccaratDetail'
+    PortugueseBaccaratDetail:
+      type: object
+      properties:
+        DealerCards:
+          type: string
+          description: Hyphen-separated cards extracted by the dealer in the round.
+        DealerHandValue:
+          type: string
+          description: Dealer hand value.
+        PlayerCards:
+          type: string
+          description: Cards of the player hand being played.
+        PlayerHandValue:
+          type: string
+          description: Player hand value.
+        Bets:
+          description: The bet split.
+          allOf:
+            - $ref: '#/components/schemas/PortugueseBaccaratAmounts'
+        BetAmount:
+          type: number
+          format: double
+          description: The total bet amount.
+        Winnings:
+          description: The win split.
+          allOf:
+            - $ref: '#/components/schemas/PortugueseBaccaratAmounts'
+        WinAmount:
+          type: number
+          format: double
+          description: Total amount won in the associated player hand.
+        Position:
+          type: string
+          description: Player position shown in Baccarat source examples.
+        DescrAp:
+          type: string
+          description: Bet description, for example Bet of x on y, where x is the amount in currency and y is the game name.
+        RefundAmount:
+          type: number
+          format: double
+          description: The refund amount.
+    PortugueseBaccaratAmounts:
+      type: object
+      description: Baccarat bet or win split.
+      properties:
+        Player:
+          type: number
+          format: double
+          description: Amount for the player side.
+        Banker:
+          type: number
+          format: double
+          description: Amount for the banker side.
+        Tie:
+          type: number
+          format: double
+          description: Amount for the tie side.
+    PortugueseCrashDetail:
+      type: object
+      description: Transaction details for a Crash game.
+      properties:
+        TransactionType:
+          type: string
+          description: Indicates whether the transaction is a bet or win.
+        DateTime:
+          type: string
+          format: date-time
+          description: Transaction timestamp in UTC.
+        TransactionId:
+          type: string
+          description: Unique transaction identifier.
+        Descr_ap:
+          type: string
+          description: Transaction description with amount and game type.
+        SmResult:
+          type: string
+          nullable: true
+          maxLength: 4000
+          description: SM_RESULT value for the Crash win transaction when present.
+        InitialReturn:
+          oneOf:
+            - type: number
+              format: double
+            - type: string
+          description: Total winnings value for the round.
+    PortugueseNotificationRequest:
+      type: object
+      required:
+        - Token
+        - SmResult
+        - GameCategory
+        - Blackjack
+        - Roulette
+        - Baccarat
+        - Crash
+        - Details
+        - Account
+      x-source-flag: "Aligned with FOI_Martin PortugueseNotification request table and integration source requirement: Token, SmResult, GameCategory, Blackjack, Roulette, Baccarat, Crash, Details, and Account are mandatory. RoundId, GameCode, and VendorCode are present in source examples but not marked mandatory in the request table."
+      properties:
+        Token:
+          type: string
+          maxLength: 1000
+          description: The token of the player for a specific game.
+        GameCategory:
+          type: string
+          description: Game category type, such as SLOT, Slot, Crash, Roulette, BANCA FRANCESA, BancaFrancesa, Blackjack, BLACKJACK, BACCARAT, or Baccarat.
+        RoundId:
+          type: string
+          description: Round identifier shown in PortugueseNotification source examples.
+          x-source-flag: Canonicalized to `RoundId` on 2026-04-22 per foi-canonicalization-decisions.md row 2.
+        PlayerId:
+          type: string
+          nullable: true
+          maxLength: 50
+          description: The unique identifier of the player in the operator's system.
+          x-source-flag: Canonicalized to `PlayerId` on 2026-04-22 per foi-canonicalization-decisions.md row 1.
+        GameCode:
+          type: string
+          description: Game code shown in PortugueseNotification source examples.
+        VendorCode:
+          type: string
+          description: Vendor code shown in PortugueseNotification source examples.
+        BrandId:
+          type: string
+          nullable: true
+          description: Brand identifier shown in the Baccarat source example.
+        MaxPlayers:
+          type: string
+          nullable: true
+          description: Maximum players value shown in the Baccarat source example.
+        Game:
+          type: string
+          nullable: true
+          description: Game value shown in the Baccarat source example.
+        SmResult:
+          type: string
+          nullable: true
+          maxLength: 4000
+          description: The SM_RESULT generated for the whole round. Limited to 4000 symbols.
+        Details:
+          type: array
+          description: List of Portuguese round details. Each element SM_RESULT is limited to 4000 symbols.
+          items:
+            $ref: '#/components/schemas/PortugueseRoundDetail'
+        Account:
+          $ref: '#/components/schemas/Account'
+        Blackjack:
+          $ref: '#/components/schemas/PortugueseBlackjackResult'
+        Roulette:
+          $ref: '#/components/schemas/PortugueseRouletteResult'
+        BancaFrancesa:
+          $ref: '#/components/schemas/PortugueseBancaFrancesaResult'
+        Baccarat:
+          $ref: '#/components/schemas/PortugueseBaccaratResult'
+          x-source-flag: Canonicalized to `Baccarat` on 2026-04-22 per foi-canonicalization-decisions.md row 30.
+        Crash:
+          type: array
+          nullable: true
+          description: Result data for a Crash round.
+          items:
+            $ref: '#/components/schemas/PortugueseCrashDetail'
+    PortugueseNotificationResponse:
+      oneOf:
+        - $ref: '#/components/schemas/PortugueseNotificationSuccessResponse'
+        - $ref: '#/components/schemas/PortugueseNotificationErrorResponse'
+    PortugueseNotificationSuccessResponse:
+      allOf:
+        - $ref: '#/components/schemas/EmptyObject'
+    PortugueseNotificationErrorResponse:
+      type: object
+      required:
+        - ErrorCode
+        - ErrorMessage
+      properties:
+        ErrorCode:
+          type: integer
+        ErrorMessage:
+          type: string
+          enum:
+            - AuthenticateFailed
+            - InvalidToken
+            - GeneralError
+          x-source-flag: "Reconstructed per errors-reconstruction-register-2026-04-24.md row 60; validated in errors-reconstruction-validation-2026-04-24.md row 60 (Status: Validated); canonicalized per foi-canonicalization-decisions.md"
+    EmptyObject:
+      type: object
+      additionalProperties: false

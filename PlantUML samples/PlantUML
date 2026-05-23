@@ -1,0 +1,71 @@
+@startuml
+autonumber
+title Game Loading
+
+participant "Client" as P
+participant "Game iframe" as GAME
+participant "Operator FE" as WS
+participant "Operator BE" as OP
+participant "FOI BL" as FOIBL
+database "HUB DB" as DB
+participant "EVI API" as EVIAPI
+participant "Vendor" as V
+
+activate WS
+WS -> V : LaunchGame url {ClientToken}
+activate V
+
+V -> EVIAPI : POST authenticate {ClientToken}
+activate EVIAPI
+deactivate WS
+
+EVIAPI -> FOIBL : authenticate request
+activate FOIBL
+
+FOIBL -> OP : POST authenticate {Token}
+activate OP
+note over FOIBL
+Token = OperatorToken
+end note
+
+OP --> FOIBL : {balance}
+
+opt Configurable option: send SecondOperatorToken, disabled by default
+    OP --> FOIBL : {balance, SecondOperatorToken}
+    deactivate OP
+
+    FOIBL -> DB : Store SecondOperatorToken
+    activate DB
+    DB --> FOIBL : Stored
+    deactivate DB
+else Default option
+    deactivate OP
+end
+
+FOIBL -> FOIBL : Regenerate vendorToken
+activate FOIBL
+deactivate FOIBL
+
+FOIBL -> DB : Store vendorToken
+activate DB
+DB --> FOIBL : Stored
+deactivate DB
+
+FOIBL --> EVIAPI : authenticate response
+note over EVIAPI
+token = vendorToken
+end note
+deactivate FOIBL
+
+EVIAPI --> V : {token, balance}
+deactivate EVIAPI
+
+V --> GAME : game content
+activate GAME
+deactivate V
+
+GAME --> P : game content
+deactivate GAME
+deactivate WS
+
+@enduml

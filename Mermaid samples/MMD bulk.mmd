@@ -1,0 +1,40 @@
+sequenceDiagram
+
+    participant P as Casino website
+    participant OP as Operator
+    participant HW as Hub Web 
+    participant HV as Hub Vendor 
+    participant V as Vendor
+
+Note over P, V: Game Session Token Flow
+P->>OP: Open Game
+OP->>HW: POST LaunchGame {OperatorToken}
+HW->>HW: Generate AggregatorToken1
+HW->>V: GET Launch Game{AggregatorToken1}
+V-->>HW: Launch url response{AggregatorToken1}
+HW-->>OP: Game URL{AggregatorToken1}
+OP-->>P: Game URL{AggregatorToken1}
+
+P->>V: Load game request {AggregatorToken1}
+V->>HW: POST authenticate {AggregatorToken1}
+HW->>HW: Generate AggregatorToken2
+HW->>OP: POST authenticate {AggregatorToken2}
+OP-->>HW: {balance}
+HW-->>V: {AggregatorToken2, balance}
+V-->>P: Load game response
+
+Note over P, V: TransactionID Flow
+P ->>V: Wager Request
+V->>HV: POST debit {vendorTransactionId}
+HV->>HV: debit record {aggregatorTransactionId}
+HV->>OP: POST debit {aggregatorTransactionId}
+OP-->>HV: debit response {operatorTransactionId}
+HV-->>V: debit response {aggregatorTransactionId}
+
+V->>HV: POST EndRound {vendorTransactionId}
+HV->>HV: endgame record {aggregatorTransactionId}
+HV->>OP: POST EndGame {aggregatorTransactionId}
+OP-->>HV: EndGame response {operatorTransactionId}
+HV-->>V: EndRound response {aggregatorTransactionId}
+V-->>P: Game outcome   
+

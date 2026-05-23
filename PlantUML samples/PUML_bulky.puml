@@ -1,0 +1,102 @@
+@startuml
+title Game Session Token Flow and TransactionID Flow
+
+participant "Casino website" as P
+participant "Operator" as OP
+participant "Hub Web" as HW
+participant "Hub Vendor" as HV
+participant "Vendor" as V
+
+== Game Session Token Flow ==
+
+P -> OP : Open Game
+activate P
+activate OP
+
+OP -> HW : Launch Game\nPOST /LaunchGame {OperatorToken}
+activate HW
+
+HW -> HW : Generate AggregatorToken1
+activate HW
+deactivate HW
+
+HW -> V : Launch Game\nGET /LaunchGame {AggregatorToken1}
+activate V
+
+V --> HW : Launch URL response {AggregatorToken1}
+deactivate V
+
+HW --> OP : Game URL {AggregatorToken1}
+deactivate HW
+
+OP --> P : Game URL {AggregatorToken1}
+deactivate OP
+deactivate P
+
+P -> V : Load game request {AggregatorToken1}
+activate P
+activate V
+
+V -> HW : Authenticate\nPOST /authenticate {AggregatorToken1}
+activate HW
+
+HW -> HW : Generate AggregatorToken2
+activate HW
+deactivate HW
+
+HW -> OP : Authenticate\nPOST /authenticate {AggregatorToken2}
+activate OP
+
+OP --> HW : {balance}
+deactivate OP
+
+HW --> V : {AggregatorToken2, balance}
+deactivate HW
+
+V --> P : Load game response
+deactivate V
+deactivate P
+
+== TransactionID Flow ==
+
+P -> V : Wager Request
+activate P
+activate V
+
+V -> HV : Debit\nPOST /debit {vendorTransactionId}
+activate HV
+
+HV -> HV : Create debit record {aggregatorTransactionId}
+activate HV
+deactivate HV
+
+HV -> OP : Debit\nPOST /debit {aggregatorTransactionId}
+activate OP
+
+OP --> HV : Debit response {operatorTransactionId}
+deactivate OP
+
+HV --> V : Debit response {aggregatorTransactionId}
+deactivate HV
+
+V -> HV : End round\nPOST /EndRound {vendorTransactionId}
+activate HV
+
+HV -> HV : Create endgame record {aggregatorTransactionId}
+activate HV
+deactivate HV
+
+HV -> OP : End game\nPOST /EndGame {aggregatorTransactionId}
+activate OP
+
+OP --> HV : EndGame response {operatorTransactionId}
+deactivate OP
+
+HV --> V : EndRound response {aggregatorTransactionId}
+deactivate HV
+
+V --> P : Game outcome
+deactivate V
+deactivate P
+
+@enduml
