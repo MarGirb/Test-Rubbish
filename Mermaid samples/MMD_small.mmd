@@ -1,37 +1,10 @@
-
 sequenceDiagram
-
-    autonumber
-    title  Game Loading
-
-    participant P as Client 
-    participant GAME as Game iframe
-    participant WS as Operator FE
-    participant OP as Operator BE
-    participant FOIBL as FOI BL
-    participant DB as HUB DB
-    participant EVIAPI as EVI API
-    participant V as Vendor
-
-
-    WS ->>+ V: LaunchGame url  {ClietToken}
-
-    V->>+ EVIAPI: POST authenticate {ClietToken}
-
-    EVIAPI ->> + FOIBL: authenticate request
-    FOIBL->> + OP: POST authenticate {Token}
-        Note over FOIBL: Token = OperatorToken
-    OP-->>  FOIBL: {balance} 
-    opt Configurable option of sending a new operator-generated token (SecondOperatorToken), disabled by default. Serves as a token of a real game session
-        OP-->> - FOIBL: {balance, SecondOperatorToken}
-        FOIBL->> + DB: store SecondOperatorToken
+    Alice->>Bob: Hello Bob, how are you?
+    alt is sick
+        Bob->>Alice: Not so good :(
+    else is well
+        Bob->>Alice: Feeling fresh like a daisy
     end
-
-    FOIBL -->> FOIBL:  regenerate vendorToken
-    FOIBL->> DB:  vendorToken
-    FOIBL -->> - EVIAPI: authenticate response
-        Note over EVIAPI: token = vendorToken
-    EVIAPI-->> - V: {token, balance}
-
-    V-->>- GAME:  game content
-    GAME-->>P: game content
+    opt Extra response
+        Bob->>Alice: Thanks for asking
+    end
